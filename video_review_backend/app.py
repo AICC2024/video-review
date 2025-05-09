@@ -84,10 +84,6 @@ def add_comment():
 
 @app.route('/comments/<video_id>', methods=['GET', 'OPTIONS'])
 def get_comments(video_id):
-    print(f"[DEBUG] GET /comments/{video_id}")
-    print(f"Method: {request.method}")
-    print(f"Headers: {dict(request.headers)}")
-
     comments = Comment.query.filter_by(video_id=video_id).order_by(Comment.timestamp).all()
     return jsonify([
         {
@@ -101,39 +97,12 @@ def get_comments(video_id):
         for c in comments
     ])
 
-# @app.after_request
-# def after_request(response):
-#     origin = request.headers.get('Origin')
-#     print(f"Request Origin: {origin}")
-#     if origin == "http://localhost:3000":
-#         response.headers.add('Access-Control-Allow-Origin', origin)
-#         response.headers.add('Access-Control-Allow-Credentials', 'true')
-#         response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-#         response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
-#     return response
-
-# @app.route('/comments', methods=['OPTIONS'])
-# @app.route('/comments/<video_id>', methods=['OPTIONS'])
-# def handle_options(video_id=None):
-#     response = jsonify({'status': 'OK'})
-#     response.headers.add('Access-Control-Allow-Origin', 'http://localhost:3000')
-#     response.headers.add('Access-Control-Allow-Credentials', 'true')
-#     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-#     response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
-#     return response
-
-# @app.route('/<path:path>', methods=['OPTIONS'])
-# def catch_all_options(path):
-#     response = jsonify({'status': 'OK'})
-#     response.headers.add('Access-Control-Allow-Origin', 'http://localhost:3000')
-#     response.headers.add('Access-Control-Allow-Credentials', 'true')
-#     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-#     response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
-#     return response
 
 @app.after_request
 def after_request(response):
-    response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
+    origin = request.headers.get("Origin")
+    if origin:
+        response.headers["Access-Control-Allow-Origin"] = origin
     response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
     response.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS"
     return response
@@ -141,7 +110,9 @@ def after_request(response):
 @app.route("/comments", methods=["OPTIONS"])
 def comments_options():
     response = jsonify({"status": "ok"})
-    response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
+    origin = request.headers.get("Origin")
+    if origin:
+        response.headers["Access-Control-Allow-Origin"] = origin
     response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
     response.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS"
     return response
@@ -197,9 +168,9 @@ def delete_comment(comment_id):
 
 @app.route('/upload', methods=['POST'])
 def upload_video():
-    if 'video' not in request.files:
+    file = request.files.get('video') or request.files.get('file')
+    if file is None:
         return jsonify({'error': 'No video file provided'}), 400
-    file = request.files['video']
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
     filename = secure_filename(file.filename)
@@ -209,7 +180,6 @@ def upload_video():
 
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
-    print(f"[DEBUG] Attempting to serve video file: {filename}")
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/export/<video_id>', methods=['GET'])

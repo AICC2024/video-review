@@ -44,7 +44,7 @@ function MainApp() {
     <div style={{ padding: "2rem" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <img src="/uploads/naveon-logo.png" alt="Naveon Logo" style={{ height: "40px" }} />
+          <img src="/naveon-logo.png" alt="Naveon Logo" style={{ height: "40px" }} />
           <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: "500" }}>Video Review™</h1>
         </div>
         <button onClick={handleLogout} style={{ padding: "0.5rem 1rem", background: "#d32f2f", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>

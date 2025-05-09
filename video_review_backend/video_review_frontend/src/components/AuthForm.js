@@ -46,7 +46,7 @@ const AuthForm = ({ onAuthSuccess }) => {
         boxShadow: "0 0 10px rgba(0, 0, 0, 0.05)"
       }}>
         <div style={{ textAlign: "center", marginBottom: "1rem" }}>
-          <img src="/uploads/naveon-logo.png" alt="Naveon Logo" style={{ height: "40px", marginBottom: "0.5rem" }} />
+          <img src="/naveon-logo.png" alt="Naveon Logo" style={{ height: "40px", marginBottom: "0.5rem" }} />
           <h2 style={{ margin: 0 }}>Video Review™</h2>
           <h3 style={{ marginTop: "0.5rem" }}>{mode === "login" ? "Login" : "Register"}</h3>
         </div>
