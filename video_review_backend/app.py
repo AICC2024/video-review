@@ -179,9 +179,9 @@ def upload_video():
     file.save(filepath)
 
     if os.path.exists(filepath):
-        print(f"[DEBUG] File successfully saved: {filename}")
+        print(f"[✅] File successfully saved: {filepath}")
     else:
-        print(f"[ERROR] File failed to save: {filename}")
+        print(f"[❌] File NOT found after save: {filepath}")
     return jsonify({'status': 'uploaded', 'filename': filename})
 
 
