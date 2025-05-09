@@ -103,7 +103,7 @@ function MainApp() {
               </button>
 
               <a
-                href={`http://127.0.0.1:5000/export/${videoId}`}
+                href={`${process.env.REACT_APP_BACKEND_URL}/export/${videoId}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
