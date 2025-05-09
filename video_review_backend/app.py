@@ -175,8 +175,13 @@ def upload_video():
         return jsonify({'error': 'No selected file'}), 400
     filename = secure_filename(file.filename)
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    print(f"[DEBUG] Saving video to: {filepath}")
     file.save(filepath)
-    print(f"[DEBUG] Saved video to: {filepath}")
+
+    if os.path.exists(filepath):
+        print(f"[DEBUG] File successfully saved: {filename}")
+    else:
+        print(f"[ERROR] File failed to save: {filename}")
     return jsonify({'status': 'uploaded', 'filename': filename})
 
 
