@@ -1,3 +1,6 @@
+import axios from "axios";
+
+axios.defaults.baseURL = "https://video-review-backend.onrender.com";
 import React, { useState, useEffect } from "react";
 import { Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import VideoPlayer from "./components/VideoPlayer";
@@ -14,6 +17,14 @@ function MainApp() {
     const username = localStorage.getItem("username");
     return token ? { token, username } : null;
   });
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const username = localStorage.getItem("username");
+    if (token && username) {
+      setUser({ token, username });
+    }
+  }, []);
 
   const [videoId, setVideoId] = useState(() => localStorage.getItem("videoId") || videoParamId || null);
   const [videoFilename, setVideoFilename] = useState(() => localStorage.getItem("videoFilename") || (videoParamId ? `${videoParamId}.mp4` : null));

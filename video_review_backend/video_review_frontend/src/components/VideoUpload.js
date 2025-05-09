@@ -20,9 +20,13 @@ const VideoUpload = ({ onUploadSuccess }) => {
     formData.append("video", selectedFile);
 
     try {
-      const res = await axios.post("/upload", formData, {
-        headers: { "Content-Type": "multipart/form-data" }
-      });
+      const res = await axios.post(
+        `${process.env.REACT_APP_BACKEND_URL}/upload`,
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" }
+        }
+      );
       setUploadStatus("Upload successful!");
       onUploadSuccess(res.data.filename);
     } catch (err) {
