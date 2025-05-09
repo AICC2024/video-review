@@ -176,8 +176,11 @@ def upload_video():
     filename = secure_filename(file.filename)
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     file.save(filepath)
+    print(f"[DEBUG] Saved video to: {filepath}")
     return jsonify({'status': 'uploaded', 'filename': filename})
 
+
+# Correct upload route definition (ensuring no duplicates)
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
