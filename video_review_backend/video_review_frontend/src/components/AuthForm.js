@@ -17,7 +17,7 @@ const AuthForm = ({ onAuthSuccess }) => {
 
       const { token, username: returnedUsername } = res.data;
       localStorage.setItem("token", token);
-      localStorage.setItem("username", returnedUsername);
+      localStorage.setItem("username", returnedUsername || username);
 
       const redirectTo = localStorage.getItem("redirectAfterLogin");
       localStorage.removeItem("redirectAfterLogin");

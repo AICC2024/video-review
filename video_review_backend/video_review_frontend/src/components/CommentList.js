@@ -32,6 +32,7 @@ const CommentList = ({ videoId }) => {
 
   useEffect(() => {
     const fetchComments = () => {
+      if (!videoId) return;
       axios.get(`/comments/${videoId}`, {
         withCredentials: false
       })
