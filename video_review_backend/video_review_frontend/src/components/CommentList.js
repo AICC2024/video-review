@@ -9,7 +9,7 @@ const CommentList = ({ videoId }) => {
   const [additionalText, setAdditionalText] = useState("");
 
 
-  // Add reaction and persist to backend
+  // Add reaction and persist to backend, then immediately update UI with latest comments
   const addReaction = async (id, type) => {
     console.log("Sending reaction", type, "for comment", id);
     try {
@@ -21,9 +21,8 @@ const CommentList = ({ videoId }) => {
           headers: { Authorization: token }
         }
       );
-      const res = await axios.get(`/comments/${videoId}`, {
-        withCredentials: false
-      });
+      // Re-fetch comments after successful reaction update
+      const res = await axios.get(`/comments/${videoId}`);
       setComments(res.data);
     } catch (err) {
       console.error("Failed to update reaction:", err);
@@ -31,21 +30,19 @@ const CommentList = ({ videoId }) => {
   };
 
   useEffect(() => {
-    const fetchComments = () => {
-      if (!videoId) return;
-      axios.get(`/comments/${videoId}`, {
-        withCredentials: false
-      })
-      .then((res) => {
+    if (!videoId) return;
+    const fetchComments = async () => {
+      try {
+        const res = await axios.get(`/comments/${videoId}`, { withCredentials: false });
         console.log("Fetched updated comments:", res.data);
         setComments(res.data);
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error("Failed to load comments:", err);
-      });
+      }
     };
 
     fetchComments();
+
     const listener = () => fetchComments();
     window.addEventListener("comments-updated", listener);
 
