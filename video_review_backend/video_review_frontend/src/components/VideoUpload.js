@@ -3,13 +3,11 @@ import axios from "axios";
 
 const VideoUpload = ({ onUploadSuccess }) => {
   const [selectedFile, setSelectedFile] = useState(null);
-  const [previewURL, setPreviewURL] = useState(null);
   const [uploadStatus, setUploadStatus] = useState("");
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     setSelectedFile(file);
-    setPreviewURL(URL.createObjectURL(file));
     setUploadStatus("");
   };
 

@@ -10,7 +10,7 @@ const VideoPlayer = ({ filename }) => {
         controls
         style={{ width: "100%", maxWidth: "960px", height: "auto", display: "block", margin: "0 auto" }}
       >
-        <source src={`http://127.0.0.1:5000/uploads/${filename}`} type="video/mp4" />
+        <source src={`${process.env.REACT_APP_BACKEND_URL}/uploads/${filename}`} type="video/mp4" />
         Your browser does not support the video tag.
       </video>
     </div>
