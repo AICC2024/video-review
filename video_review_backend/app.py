@@ -118,6 +118,16 @@ def comments_options():
     return response
 
 
+@app.route("/comments/<int:comment_id>", methods=["OPTIONS"])
+def comment_options(comment_id):
+    response = jsonify({"status": "ok"})
+    origin = request.headers.get("Origin")
+    if origin:
+        response.headers["Access-Control-Allow-Origin"] = origin
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
+    response.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS,PUT,DELETE,PATCH"
+    return response
+
 @app.route('/comments/<int:comment_id>', methods=['PUT'])
 def update_comment(comment_id):
     data = request.json
@@ -128,6 +138,16 @@ def update_comment(comment_id):
 
 
 # Route for updating comment reactions
+@app.route("/comments/<int:comment_id>/reactions", methods=["OPTIONS"])
+def comment_reactions_options(comment_id):
+    response = jsonify({"status": "ok"})
+    origin = request.headers.get("Origin")
+    if origin:
+        response.headers["Access-Control-Allow-Origin"] = origin
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
+    response.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS,PUT,DELETE,PATCH"
+    return response
+
 @app.route('/comments/<int:comment_id>/reactions', methods=['PATCH'])
 def update_reactions(comment_id):
     data = request.json
@@ -188,7 +208,8 @@ def upload_video():
 # Correct upload route definition (ensuring no duplicates)
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    return send_file(path, mimetype="video/mp4", conditional=True)
 
 @app.route('/export/<video_id>', methods=['GET'])
 def export_comments(video_id):
