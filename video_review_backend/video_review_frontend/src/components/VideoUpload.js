@@ -25,8 +25,26 @@ const VideoUpload = ({ onUploadSuccess }) => {
           headers: { "Content-Type": "multipart/form-data" }
         }
       );
-      setUploadStatus("Upload successful!");
-      onUploadSuccess(res.data.filename);
+
+      const filename = res.data.filename;
+      setUploadStatus("Upload successful! Waiting for video to be ready...");
+
+      // Poll until the video is accessible
+      const pollForReadiness = async (retries = 10) => {
+        for (let i = 0; i < retries; i++) {
+          try {
+            await axios.head(`${process.env.REACT_APP_BACKEND_URL}/uploads/${filename}`);
+            onUploadSuccess(filename);
+            return;
+          } catch {
+            await new Promise(res => setTimeout(res, 1500));
+          }
+        }
+        setUploadStatus("Upload saved, but video not ready. Try refreshing.");
+      };
+
+      pollForReadiness();
+
     } catch (err) {
       setUploadStatus("Upload failed.");
       console.error("Upload error:", err);
