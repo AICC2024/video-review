@@ -19,3 +19,6 @@ dist/
 uploads/
 exports/
 *.sqlite3
+# Frontend React build & cache
+video_review_backend/video_review_frontend/build/
+video_review_backend/video_review_frontend/node_modules/.cache/
