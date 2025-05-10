@@ -7,6 +7,7 @@ const VideoPlayer = ({ filename }) => {
     <div>
       <video
         id="review-video"
+        key={filename}
         controls
         style={{ width: "100%", maxWidth: "960px", height: "auto", display: "block", margin: "0 auto" }}
       >
