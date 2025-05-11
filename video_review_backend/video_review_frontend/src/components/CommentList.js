@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
+
 const CommentList = ({ videoId }) => {
   const [comments, setComments] = useState([]);
   const [editingId, setEditingId] = useState(null);
@@ -15,14 +17,16 @@ const CommentList = ({ videoId }) => {
     try {
       const token = localStorage.getItem("token");
       await axios.patch(
-        `/comments/${id}/reactions`,
+        `${BACKEND_URL}/comments/${id}/reactions`,
         { [type]: 1 },
         {
           headers: { Authorization: token }
         }
       );
       // Re-fetch comments after successful reaction update
-      const res = await axios.get(`/comments/${videoId}`);
+      const res = await axios.get(`${BACKEND_URL}/comments/${videoId}`, {
+        headers: { Authorization: token }
+      });
       setComments(res.data);
     } catch (err) {
       console.error("Failed to update reaction:", err);
@@ -33,7 +37,11 @@ const CommentList = ({ videoId }) => {
     if (!videoId) return;
     const fetchComments = async () => {
       try {
-        const res = await axios.get(`/comments/${videoId}`, { withCredentials: false });
+        const token = localStorage.getItem("token");
+        const res = await axios.get(`${BACKEND_URL}/comments/${videoId}`, { 
+          withCredentials: false,
+          headers: { Authorization: token }
+        });
         console.log("Fetched updated comments:", res.data);
         setComments(res.data);
       } catch (err) {
@@ -80,9 +88,13 @@ const CommentList = ({ videoId }) => {
 
     try {
       console.log(`Saving comment ID ${id}:`, updatedText);
-      await axios.put(`/comments/${id}`, { comment: updatedText });
-      const res = await axios.get(`/comments/${videoId}`, {
-        withCredentials: false
+      const token = localStorage.getItem("token");
+      await axios.put(`${BACKEND_URL}/comments/${id}`, { comment: updatedText }, {
+        headers: { Authorization: token }
+      });
+      const res = await axios.get(`${BACKEND_URL}/comments/${videoId}`, {
+        withCredentials: false,
+        headers: { Authorization: token }
       });
       console.log("Fetched updated comments:", res.data);
       setComments(res.data);
@@ -96,9 +108,13 @@ const CommentList = ({ videoId }) => {
   const deleteComment = async (id) => {
     if (!window.confirm("Are you sure you want to delete this comment?")) return;
     try {
-      await axios.delete(`/comments/${id}`);
-      const res = await axios.get(`/comments/${videoId}`, {
-        withCredentials: false
+      const token = localStorage.getItem("token");
+      await axios.delete(`${BACKEND_URL}/comments/${id}`, {
+        headers: { Authorization: token }
+      });
+      const res = await axios.get(`${BACKEND_URL}/comments/${videoId}`, {
+        withCredentials: false,
+        headers: { Authorization: token }
       });
       setComments(res.data);
     } catch (err) {

@@ -21,35 +21,32 @@ const VideoUpload = ({ onUploadSuccess }) => {
     formData.append("video", selectedFile);
 
     try {
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
+      console.log("Using backend URL:", backendUrl);
+      if (!backendUrl) {
+        console.warn("⚠️ REACT_APP_BACKEND_URL is undefined. Check your .env file and ensure the React app was restarted.");
+      }
+
       const res = await axios.post(
-        `${process.env.REACT_APP_BACKEND_URL}/upload`,
+        `${backendUrl}/upload`,
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" }
         }
       );
 
-      const filename = res.data.filename;
-      setUploadStatus("Upload successful! Waiting for video to be ready...");
-
-      // Poll until the video is accessible
-      const pollForReadiness = async (retries = 10) => {
-        for (let i = 0; i < retries; i++) {
-          try {
-            await axios.head(`${process.env.REACT_APP_BACKEND_URL}/uploads/${filename}`);
-            setSelectedFile(null);
-            onUploadSuccess(filename);
-            setIsUploading(false);
-            return;
-          } catch {
-            await new Promise(res => setTimeout(res, 1500));
-          }
-        }
-        setUploadStatus("Upload saved, but video not ready. Try refreshing.");
+      console.log("Upload response:", res.data);
+      const s3Url = res.data.url;
+      if (!s3Url) {
+        console.error("Error: S3 URL not returned from backend.");
+        setUploadStatus("Upload failed: No S3 URL received.");
         setIsUploading(false);
-      };
-
-      pollForReadiness();
+        return;
+      }
+      setSelectedFile(null);
+      setIsUploading(false);
+      setUploadStatus("Upload successful!");
+      onUploadSuccess(s3Url);  // send S3 URL to parent component
 
     } catch (err) {
       setUploadStatus("Upload failed.");

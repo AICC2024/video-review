@@ -12,7 +12,9 @@ const AuthForm = ({ onAuthSuccess }) => {
     setError("");
 
     try {
-      const url = mode === "login" ? "/login" : "/register";
+      const baseUrl = process.env.REACT_APP_BACKEND_URL || "";
+      console.log("AuthForm → Using backend URL:", baseUrl);
+      const url = baseUrl + (mode === "login" ? "/login" : "/register");
       const res = await axios.post(url, { username, password });
 
       const { token, username: returnedUsername } = res.data;

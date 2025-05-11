@@ -30,10 +30,12 @@ const CommentForm = ({ videoId }) => {
       console.warn("Video not ready. Falling back to 00.");
     }
 
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || "";
+
     try {
       const token = localStorage.getItem("token");
       await axios.post(
-        "/comments",
+        `${backendUrl}/comments`,
         {
           video_id: videoId,
           timestamp,

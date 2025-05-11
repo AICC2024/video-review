@@ -1,6 +1,4 @@
 import axios from "axios";
-
-axios.defaults.baseURL = "https://video-review-backend.onrender.com";
 import React, { useState, useEffect } from "react";
 import { Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import VideoPlayer from "./components/VideoPlayer";
@@ -27,17 +25,21 @@ function MainApp() {
   }, []);
 
   const [videoId, setVideoId] = useState(() => localStorage.getItem("videoId") || videoParamId || null);
-  const [videoFilename, setVideoFilename] = useState(() => localStorage.getItem("videoFilename") || (videoParamId ? `${videoParamId}.mp4` : null));
+  const [videoUrl, setVideoUrl] = useState(() => localStorage.getItem("videoUrl") || null);
   const [showUpload, setShowUpload] = useState(false);
-  const [prevVideoState, setPrevVideoState] = useState({ videoId: null, videoFilename: null });
+  const [prevVideoState, setPrevVideoState] = useState({ videoId: null, videoUrl: null });
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (videoParamId) {
       setVideoId(videoParamId);
-      setVideoFilename(`${videoParamId}.mp4`);
+      const storedUrl = localStorage.getItem("videoUrl");
+      if (storedUrl && storedUrl.includes(videoParamId)) {
+        setVideoUrl(storedUrl);
+      } else {
+        setVideoUrl(null);
+      }
       localStorage.setItem("videoId", videoParamId);
-      localStorage.setItem("videoFilename", `${videoParamId}.mp4`);
     }
   }, [videoParamId]);
 
@@ -63,30 +65,33 @@ function MainApp() {
         </button>
       </div>
 
-      {!videoFilename ? (
+      {!videoUrl ? (
         <VideoUpload onUploadSuccess={(filename) => {
-          const baseName = filename.replace(/\.[^/.]+$/, "");
+          const isUrl = filename.startsWith("http");
+          const baseName = isUrl
+            ? filename.split("/").pop().replace(/\.[^/.]+$/, "")
+            : filename.replace(/\.[^/.]+$/, "");
 
           // Clear previous state to force refresh
           setVideoId(null);
-          setVideoFilename(null);
+          setVideoUrl(null);
           setTimeout(() => {
             setVideoId(baseName);
-            setVideoFilename(filename);
+            setVideoUrl(filename);
             localStorage.setItem("videoId", baseName);
-            localStorage.setItem("videoFilename", filename);
+            localStorage.setItem("videoUrl", filename);
             navigate(`/review/${baseName}`);
             setShowUpload(false);
           }, 0);
         }} />
       ) : (
         <div style={{ margin: "1rem 0", padding: "1rem", border: "1px solid #ccc", borderRadius: "6px", background: "#f9f9f9" }}>
-          🎞️ Reviewing: <strong>{videoFilename}</strong>{" "}
+          🎞️ Reviewing: <strong>{videoUrl}</strong>{" "}
           {videoId && (
             <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginTop: "1rem", flexWrap: "wrap" }}>
               <button
                 onClick={() => {
-                  setPrevVideoState({ videoId, videoFilename });
+                  setPrevVideoState({ videoId, videoUrl });
                   setShowUpload(true);
                 }}
                 style={{
@@ -159,16 +164,19 @@ function MainApp() {
             <div>
               <VideoUpload
                 onUploadSuccess={(filename) => {
-                  const baseName = filename.replace(/\.[^/.]+$/, "");
+                  const isUrl = filename.startsWith("http");
+                  const baseName = isUrl
+                    ? filename.split("/").pop().replace(/\.[^/.]+$/, "")
+                    : filename.replace(/\.[^/.]+$/, "");
 
                   // Clear previous state to force refresh
                   setVideoId(null);
-                  setVideoFilename(null);
+                  setVideoUrl(null);
                   setTimeout(() => {
                     setVideoId(baseName);
-                    setVideoFilename(filename);
+                    setVideoUrl(filename);
                     localStorage.setItem("videoId", baseName);
-                    localStorage.setItem("videoFilename", filename);
+                    localStorage.setItem("videoUrl", filename);
                     navigate(`/review/${baseName}`);
                     setShowUpload(false);
                   }, 0);
@@ -177,7 +185,7 @@ function MainApp() {
               <button
                 onClick={() => {
                   setVideoId(prevVideoState.videoId);
-                  setVideoFilename(prevVideoState.videoFilename);
+                  setVideoUrl(prevVideoState.videoUrl);
                   setShowUpload(false);
                 }}
                 style={{
@@ -198,7 +206,7 @@ function MainApp() {
         </div>
       )}
 
-      <VideoPlayer filename={videoFilename} key={videoFilename} />
+      <VideoPlayer videoUrl={videoUrl} key={videoUrl} />
       <CommentForm videoId={videoId} />
       <CommentList videoId={videoId} />
     </div>

@@ -10,9 +10,12 @@ import secrets
 import os
 from werkzeug.utils import secure_filename, safe_join
 from docx import Document
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # Allow uploads up to 500MB
 
 # PostgreSQL connection string placeholder (update before deployment)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get("DATABASE_URL", "postgresql://paulminton@localhost:5432/video_review")
@@ -24,6 +27,11 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 EXPORT_FOLDER = os.path.join(os.getcwd(), 'exports')
 os.makedirs(EXPORT_FOLDER, exist_ok=True)
+
+S3_BUCKET = 'naveon-video-storage'
+S3_REGION = 'us-east-1'  # change if your bucket is in a different region
+
+s3_client = boto3.client('s3')
 
 db = SQLAlchemy(app)
 
@@ -189,20 +197,31 @@ def delete_comment(comment_id):
 @app.route('/upload', methods=['POST'])
 def upload_video():
     file = request.files.get('video') or request.files.get('file')
-    if file is None:
+    if file is None or file.filename == '':
         return jsonify({'error': 'No video file provided'}), 400
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-    filename = secure_filename(file.filename)
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    print(f"[DEBUG] Saving video to: {filepath}")
-    file.save(filepath)
 
-    if os.path.exists(filepath):
-        print(f"[✅] File successfully saved: {filepath}")
-    else:
-        print(f"[❌] File NOT found after save: {filepath}")
-    return jsonify({'status': 'uploaded', 'filename': filename})
+    filename = secure_filename(file.filename)
+
+    try:
+        s3_client.upload_fileobj(
+            file,
+            S3_BUCKET,
+            filename,
+            ExtraArgs={'ContentType': file.content_type}
+        )
+        s3_url = f"https://{S3_BUCKET}.s3.amazonaws.com/{filename}"
+        print(f"[✅] Uploaded to S3: {s3_url}")
+        response_data = {
+            'status': 'uploaded',
+            'filename': filename,
+            'url': s3_url
+        }
+        print(f"[✅] Returning response: {response_data}")
+        return jsonify(response_data)
+
+    except (BotoCoreError, ClientError) as e:
+        print(f"[❌] S3 Upload failed: {e}")
+        return jsonify({'error': 'Upload to S3 failed'}), 500
 
 
 # Correct upload route definition (ensuring no duplicates)
@@ -247,5 +266,3 @@ def export_comments(video_id):
     doc.save(export_path)
     return send_file(export_path, as_attachment=True)
 
-if __name__ == '__main__':
-    app.run(host="127.0.0.1", debug=True)
