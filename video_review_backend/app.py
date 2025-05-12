@@ -266,3 +266,30 @@ def export_comments(video_id):
     doc.save(export_path)
     return send_file(export_path, as_attachment=True)
 
+
+
+# Admin asset upload route
+@app.route('/admin/upload', methods=['POST'])
+def admin_upload_asset():
+    file = request.files.get('file')
+    category = request.form.get('category')  # 'videos', 'storyboards', 'voiceovers'
+
+    if not file or not category:
+        return jsonify({'error': 'File and category are required'}), 400
+
+    filename = secure_filename(file.filename)
+    s3_key = f"{category}/{filename}"
+
+    try:
+        s3_client.upload_fileobj(
+            file,
+            S3_BUCKET,
+            s3_key,
+            ExtraArgs={'ContentType': file.content_type}
+        )
+        s3_url = f"https://{S3_BUCKET}.s3.amazonaws.com/{s3_key}"
+        print(f"[✅] Admin uploaded to S3: {s3_url}")
+        return jsonify({'status': 'uploaded', 's3_key': s3_key, 'url': s3_url})
+    except (BotoCoreError, ClientError) as e:
+        print(f"[❌] Admin S3 upload failed: {e}")
+        return jsonify({'error': 'Admin upload to S3 failed'}), 500

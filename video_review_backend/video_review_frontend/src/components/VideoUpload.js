@@ -86,7 +86,7 @@ const VideoUpload = ({ onUploadSuccess }) => {
         <input
           id="video-file"
           type="file"
-          accept="video/*"
+          accept=".mp4,.pdf,.docx,.pptx,.mp3,.wav"
           onChange={handleFileChange}
           style={{
             marginBottom: "1rem",

@@ -6,6 +6,7 @@ import CommentForm from "./components/CommentForm";
 import CommentList from "./components/CommentList";
 import AuthForm from "./components/AuthForm";
 import VideoUpload from "./components/VideoUpload";
+import AdminUpload from "./components/AdminUpload";
 
 function MainApp() {
   const { videoParamId } = useParams();
@@ -218,6 +219,7 @@ function App() {
     <Routes>
       <Route path="/" element={<MainApp />} />
       <Route path="/review/:videoParamId" element={<MainApp />} />
+      <Route path="/admin-upload" element={<AdminUpload />} />
     </Routes>
   );
 }
