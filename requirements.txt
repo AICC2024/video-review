@@ -1,0 +1,9 @@
+flask
+flask_sqlalchemy
+flask_cors
+psycopg2-binary
+gunicorn
+python-docx
+pytz
+boto3
+
