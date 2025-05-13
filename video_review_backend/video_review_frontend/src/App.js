@@ -7,6 +7,8 @@ import CommentList from "./components/CommentList";
 import AuthForm from "./components/AuthForm";
 import VideoUpload from "./components/VideoUpload";
 import AdminUpload from "./components/AdminUpload";
+import MediaSelector from "./components/MediaSelector";
+import PdfRegionCommenter from "./components/PdfRegionCommenter";
 
 function MainApp() {
   const { videoParamId } = useParams();
@@ -25,11 +27,58 @@ function MainApp() {
     }
   }, []);
 
+  // Listen for messages from the embedded PDF viewer (PDF_COMMENT_SNAPSHOT)
+  const [pdfSnapshot, setPdfSnapshot] = useState(null);
+  const [pdfCurrentPage, setPdfCurrentPage] = useState(null);
+
+  useEffect(() => {
+    function handlePdfSnapshot(event) {
+      if (
+        typeof event.data === "object" &&
+        event.data.type === "PDF_COMMENT_SNAPSHOT"
+      ) {
+        const { page, image } = event.data;
+        console.log("📥 Received snapshot from PDF viewer:", { page, image });
+        // Future: pre-fill the comment form here
+        setPdfSnapshot({ page, image });
+      }
+      if (event.data.type === "PDF_PAGE_SYNC") {
+        setPdfCurrentPage(event.data.page);
+      }
+    }
+
+    window.addEventListener("message", handlePdfSnapshot);
+    return () => {
+      window.removeEventListener("message", handlePdfSnapshot);
+    };
+  }, []);
+
   const [videoId, setVideoId] = useState(() => localStorage.getItem("videoId") || videoParamId || null);
   const [videoUrl, setVideoUrl] = useState(() => localStorage.getItem("videoUrl") || null);
   const [showUpload, setShowUpload] = useState(false);
   const [prevVideoState, setPrevVideoState] = useState({ videoId: null, videoUrl: null });
   const [copied, setCopied] = useState(false);
+
+  const [mediaType, setMediaType] = useState("videos");
+  const [selectedAsset, setSelectedAsset] = useState(videoUrl || "");
+  const [mediaOptions, setMediaOptions] = useState([]);
+
+  useEffect(() => {
+    const fetchMedia = async () => {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/media?type=${mediaType}`);
+        const files = res.data.map((file) => file.url);
+        setMediaOptions(files);
+        if (files.length > 0) {
+          setSelectedAsset(files[0]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch media:", error);
+      }
+    };
+
+    fetchMedia();
+  }, [mediaType]);
 
   useEffect(() => {
     if (videoParamId) {
@@ -37,12 +86,25 @@ function MainApp() {
       const storedUrl = localStorage.getItem("videoUrl");
       if (storedUrl && storedUrl.includes(videoParamId)) {
         setVideoUrl(storedUrl);
+        setSelectedAsset(storedUrl);
       } else {
         setVideoUrl(null);
+        setSelectedAsset("");
       }
       localStorage.setItem("videoId", videoParamId);
     }
   }, [videoParamId]);
+
+  useEffect(() => {
+    if (selectedAsset) {
+      const baseName = selectedAsset.split("/").pop().replace(/\.[^/.]+$/, "");
+      setVideoId(baseName);
+      setVideoUrl(selectedAsset);
+      localStorage.setItem("videoId", baseName);
+      localStorage.setItem("videoUrl", selectedAsset);
+      navigate(`/review/${baseName}`);
+    }
+  }, [selectedAsset, navigate]);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -79,6 +141,7 @@ function MainApp() {
           setTimeout(() => {
             setVideoId(baseName);
             setVideoUrl(filename);
+            setSelectedAsset(filename);
             localStorage.setItem("videoId", baseName);
             localStorage.setItem("videoUrl", filename);
             navigate(`/review/${baseName}`);
@@ -89,75 +152,92 @@ function MainApp() {
         <div style={{ margin: "1rem 0", padding: "1rem", border: "1px solid #ccc", borderRadius: "6px", background: "#f9f9f9" }}>
           🎞️ Reviewing: <strong>{videoUrl}</strong>{" "}
           {videoId && (
-            <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginTop: "1rem", flexWrap: "wrap" }}>
-              <button
-                onClick={() => {
-                  setPrevVideoState({ videoId, videoUrl });
-                  setShowUpload(true);
-                }}
-                style={{
-                  padding: "0.5rem 1rem",
-                  fontSize: "0.95rem",
-                  borderRadius: "4px",
-                  border: "none",
-                  backgroundColor: "#1976d2",
-                  color: "#fff",
-                  cursor: "pointer"
-                }}
-              >
-                Change
-              </button>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "2rem", marginTop: "1rem", flexWrap: "wrap", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+                <div>
+                  <label style={{ fontSize: "0.9rem", fontWeight: 500 }}>Media Type:</label><br />
+                  <select
+                    value={mediaType}
+                    onChange={(e) => setMediaType(e.target.value)}
+                    style={{ padding: "0.4rem", fontSize: "0.9rem", borderRadius: "4px", border: "1px solid #ccc" }}
+                  >
+                    <option value="videos">Videos</option>
+                    <option value="storyboards">Storyboards</option>
+                    <option value="voiceovers">Voiceovers</option>
+                  </select>
+                </div>
 
-              <a
-                href={`${process.env.REACT_APP_BACKEND_URL}/export/${videoId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  padding: "0.5rem 1rem",
-                  fontSize: "0.95rem",
-                  borderRadius: "4px",
-                  backgroundColor: "#1976d2",
-                  color: "#fff",
-                  textDecoration: "none",
-                  display: "inline-block"
-                }}
-              >
-                📄 Export Comments (.docx)
-              </a>
+                <div>
+                  <label style={{ fontSize: "0.9rem", fontWeight: 500 }}>Select Asset:</label><br />
+                  <select
+                    value={selectedAsset}
+                    onChange={(e) => {
+                      const selected = e.target.value;
+                      setSelectedAsset(selected);
+                    }}
+                    style={{ padding: "0.4rem", fontSize: "0.9rem", borderRadius: "4px", border: "1px solid #ccc", width: "260px" }}
+                  >
+                    {mediaOptions.map((url) => (
+                      <option key={url} value={url}>
+                        {url.split("/").pop()}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <label style={{ fontSize: "0.9rem", fontWeight: 500 }}>Shareable Link:</label>
-                <input
-                  type="text"
-                  readOnly
-                  value={`${window.location.origin}/review/${videoId}`}
+              <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+                <a
+                  href={`${process.env.REACT_APP_BACKEND_URL}/export/${videoId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   style={{
-                    width: "260px",
-                    padding: "0.4rem",
-                    fontSize: "0.9rem",
-                    border: "1px solid #ccc",
-                    borderRadius: "4px"
-                  }}
-                />
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/review/${videoId}`);
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 1500);
-                  }}
-                  style={{
+                    padding: "0.5rem 1rem",
+                    fontSize: "0.95rem",
+                    borderRadius: "4px",
                     backgroundColor: "#1976d2",
                     color: "#fff",
-                    padding: "0.4rem 0.75rem",
-                    borderRadius: "4px",
-                    fontSize: "0.9rem",
-                    border: "none",
-                    cursor: "pointer"
+                    textDecoration: "none",
+                    display: "inline-block"
                   }}
                 >
-                  Copy
-                </button>
-                {copied && <span style={{ color: "#4caf50", fontSize: "0.85rem" }}>Copied!</span>}
+                  📄 Export Comments (.docx)
+                </a>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <label style={{ fontSize: "0.9rem", fontWeight: 500 }}>Shareable Link:</label>
+                  <input
+                    type="text"
+                    readOnly
+                    value={`${window.location.origin}/review/${videoId}`}
+                    style={{
+                      width: "260px",
+                      padding: "0.4rem",
+                      fontSize: "0.9rem",
+                      border: "1px solid #ccc",
+                      borderRadius: "4px"
+                    }}
+                  />
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/review/${videoId}`);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 1500);
+                    }}
+                    style={{
+                      backgroundColor: "#1976d2",
+                      color: "#fff",
+                      padding: "0.4rem 0.75rem",
+                      borderRadius: "4px",
+                      fontSize: "0.9rem",
+                      border: "none",
+                      cursor: "pointer"
+                    }}
+                  >
+                    Copy
+                  </button>
+                  {copied && <span style={{ color: "#4caf50", fontSize: "0.85rem" }}>Copied!</span>}
+                </div>
               </div>
             </div>
           )}
@@ -176,6 +256,7 @@ function MainApp() {
                   setTimeout(() => {
                     setVideoId(baseName);
                     setVideoUrl(filename);
+                    setSelectedAsset(filename);
                     localStorage.setItem("videoId", baseName);
                     localStorage.setItem("videoUrl", filename);
                     navigate(`/review/${baseName}`);
@@ -207,8 +288,13 @@ function MainApp() {
         </div>
       )}
 
-      <VideoPlayer videoUrl={videoUrl} key={videoUrl} />
-      <CommentForm videoId={videoId} />
+      {videoUrl.endsWith(".pdf") ? (
+        <PdfRegionCommenter url={videoUrl} key={videoUrl} />
+      ) : (
+        <VideoPlayer videoUrl={videoUrl} key={videoUrl} />
+      )}
+      {console.log("Passing current page to comment form:", pdfCurrentPage)}
+      <CommentForm videoId={videoId} snapshot={pdfSnapshot} page={pdfCurrentPage} />
       <CommentList videoId={videoId} />
     </div>
   );
@@ -220,6 +306,14 @@ function App() {
       <Route path="/" element={<MainApp />} />
       <Route path="/review/:videoParamId" element={<MainApp />} />
       <Route path="/admin-upload" element={<AdminUpload />} />
+      <Route
+        path="/test-pdf"
+        element={
+          <div style={{ padding: "2rem" }}>
+            <PdfRegionCommenter url="https://naveon-video-storage.s3.amazonaws.com/storyboards/Naveon-storyboard.pdf" />
+          </div>
+        }
+      />
     </Routes>
   );
 }

@@ -49,6 +49,7 @@ class Comment(db.Model):
     user = db.Column(db.String(120), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     reactions = db.Column(MutableDict.as_mutable(db.JSON), default=dict)  # new line added
+    page = db.Column(db.Integer, nullable=True)
 
 
 # User registration route
@@ -84,7 +85,8 @@ def add_comment():
         video_id=data['video_id'],
         timestamp=data['timestamp'],
         comment=data['comment'],
-        user=username
+        user=username,
+        page=data.get("page")
     )
     db.session.add(comment)
     db.session.commit()
@@ -100,7 +102,8 @@ def get_comments(video_id):
             "comment": c.comment,
             "user": c.user,
             "created_at": c.created_at.isoformat(),
-            "reactions": json.loads(c.reactions) if isinstance(c.reactions, str) else (c.reactions or {})
+            "reactions": json.loads(c.reactions) if isinstance(c.reactions, str) else (c.reactions or {}),
+            "page": c.page,
         }
         for c in comments
     ])
@@ -254,7 +257,10 @@ def export_comments(video_id):
         additions = full.split("\n\n--")[1:] if "\n\n--" in full else []
 
         p = doc.add_paragraph()
-        p.add_run(f"{c.timestamp} seconds").bold = True
+        if c.page:
+            p.add_run(f"Page {c.page}:").bold = True
+        else:
+            p.add_run(f"{c.timestamp} seconds").bold = True
         p.add_run(f" — {base} ({c.user})")
         for add in additions:
             lines = add.strip().split("\n")
@@ -293,3 +299,27 @@ def admin_upload_asset():
     except (BotoCoreError, ClientError) as e:
         print(f"[❌] Admin S3 upload failed: {e}")
         return jsonify({'error': 'Admin upload to S3 failed'}), 500
+
+
+# Route for listing S3 files by category
+@app.route('/media', methods=['GET'])
+def list_media_by_type():
+    category = request.args.get('type')  # 'videos', 'storyboards', 'voiceovers'
+    if not category:
+        return jsonify({'error': 'Missing type query parameter'}), 400
+
+    try:
+        response = s3_client.list_objects_v2(Bucket=S3_BUCKET, Prefix=f"{category}/")
+        files = []
+        for obj in response.get('Contents', []):
+            key = obj['Key']
+            if key.endswith('/'):
+                continue  # skip folder entries
+            filename = key.split('/')[-1]
+            file_url = f"https://{S3_BUCKET}.s3.amazonaws.com/{key}"
+            files.append({'filename': filename, 'url': file_url})
+
+        return jsonify(files)
+    except Exception as e:
+        print(f"[❌] Failed to list {category} from S3:", str(e))
+        return jsonify({'error': 'Failed to list media files'}), 500

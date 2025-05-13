@@ -4,7 +4,7 @@ import axios from "axios";
 // Helper to detect mobile browsers
 const isMobile = /Mobi|Android/i.test(navigator.userAgent);
 
-const CommentForm = ({ videoId }) => {
+const CommentForm = ({ videoId, snapshot, page }) => {
   const [comment, setComment] = useState("");
   const [liveTranscript, setLiveTranscript] = useState("");
   const [pausedTime, setPausedTime] = useState("0.00");
@@ -39,7 +39,9 @@ const CommentForm = ({ videoId }) => {
         {
           video_id: videoId,
           timestamp,
-          comment
+          comment,
+          image: snapshot?.image || null,
+          page: page || null
         },
         {
           headers: {
@@ -122,6 +124,20 @@ const CommentForm = ({ videoId }) => {
             minHeight: "60px"
           }}
         />
+        {snapshot?.image && (
+          <div style={{ marginTop: "0.5rem" }}>
+            <img
+              src={snapshot.image}
+              alt={`Screenshot for page ${snapshot.page}`}
+              style={{
+                maxWidth: "100%",
+                maxHeight: "200px",
+                border: "1px solid #ccc",
+                borderRadius: "4px"
+              }}
+            />
+          </div>
+        )}
         {!isMobile && (
           <button
             onClick={startVoiceInput}

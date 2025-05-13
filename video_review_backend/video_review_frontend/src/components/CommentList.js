@@ -166,7 +166,9 @@ const CommentList = ({ videoId }) => {
               }}
             >
               <strong style={{ display: "block", color: "#555", marginBottom: "0.25rem" }}>
-                {c.timestamp} seconds
+                {c.page
+                  ? `📄 Page ${c.page}`
+                  : `${c.timestamp} seconds`}
               </strong>
               {editingId === commentId ? (
                 <div>
@@ -210,6 +212,15 @@ const CommentList = ({ videoId }) => {
                               </div>
                             );
                           })}
+                      </div>
+                    )}
+                    {c.image && (
+                      <div style={{ marginTop: "0.5rem" }}>
+                        <img
+                          src={c.image}
+                          alt="Annotation"
+                          style={{ maxWidth: "100%", maxHeight: "200px", border: "1px solid #ccc", borderRadius: "4px" }}
+                        />
                       </div>
                     )}
                   </div>
