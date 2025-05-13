@@ -168,7 +168,11 @@ const CommentList = ({ videoId }) => {
               <strong style={{ display: "block", color: "#555", marginBottom: "0.25rem" }}>
                 {c.page
                   ? `📄 Page ${c.page}`
-                  : `${c.timestamp} seconds`}
+                  : (() => {
+                      const minutes = Math.floor(c.timestamp / 60);
+                      const seconds = Math.floor(c.timestamp % 60).toString().padStart(2, '0');
+                      return `${minutes}:${seconds}`;
+                    })()}
               </strong>
               {editingId === commentId ? (
                 <div>
