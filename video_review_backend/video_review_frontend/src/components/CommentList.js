@@ -43,6 +43,11 @@ const CommentList = ({ videoId }) => {
           headers: { Authorization: token }
         });
         console.log("Fetched updated comments:", res.data);
+        res.data.sort((a, b) => {
+          if (a.page != null && b.page != null) return a.page - b.page;
+          if (a.timestamp != null && b.timestamp != null) return a.timestamp - b.timestamp;
+          return a.id - b.id;
+        });
         setComments(res.data);
       } catch (err) {
         console.error("Failed to load comments:", err);
@@ -149,7 +154,7 @@ const CommentList = ({ videoId }) => {
         Comments
       </h2>
       <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-        {comments.map((c) => {
+        {comments.map((c, index) => {
           if (!c || !c.timestamp || !c.comment || typeof c.id !== "number") return null;
           const commentId = c.id;
           const reactions = typeof c.reactions === "string" ? JSON.parse(c.reactions) : c.reactions || {};
