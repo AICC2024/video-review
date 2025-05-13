@@ -243,7 +243,7 @@ const CommentList = ({ videoId }) => {
                         Add
                       </button>
                       <button style={buttonStyle} onClick={() => startEditing(c)}>Edit</button>
-                      <button style={deleteButtonStyle} onClick={() => deleteComment(c.id)}>Delete</button>
+                      <button style={deleteButtonStyle} onClick={() => deleteComment(commentId)}>Delete</button>
                     </div>
                     <div style={{ display: "flex", gap: "0.25rem", fontSize: "1.2rem", minWidth: "70px", justifyContent: "flex-end" }}>
                       {["👍", "❤️", "👎"].map((icon) => {
@@ -251,8 +251,8 @@ const CommentList = ({ videoId }) => {
                         const count = users.length;
                         return (
                           <button
-                            key={`${c.id}-${icon}`}
-                            onClick={() => typeof c.id === "number" && addReaction(c.id, icon)}
+                            key={`${commentId}-${icon}`}
+                            onClick={() => addReaction(commentId, icon)}
                             title={users.length > 0 ? users.join(", ") : ""}
                             style={{
                               background: "none",
