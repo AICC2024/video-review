@@ -1,9 +1,8 @@
-
-
 import React, { useState } from "react";
 import axios from "axios";
 
 const AdminUpload = () => {
+  console.log("🔧 AdminUpload component is rendering...");
   const [selectedFile, setSelectedFile] = useState(null);
   const [category, setCategory] = useState("videos");
   const [uploadStatus, setUploadStatus] = useState("");
@@ -34,6 +33,7 @@ const AdminUpload = () => {
   return (
     <div style={{ maxWidth: "600px", margin: "2rem auto", padding: "2rem", border: "1px solid #ccc", borderRadius: "6px", background: "#fafafa" }}>
       <h2>Admin Upload</h2>
+      <p>Admin upload UI is active.</p>
       <form onSubmit={handleUpload}>
         <div style={{ marginBottom: "1rem" }}>
           <label>Asset Type:</label>
