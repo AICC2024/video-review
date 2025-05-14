@@ -27,7 +27,12 @@ const CommentList = ({ videoId }) => {
       const res = await axios.get(`${BACKEND_URL}/comments/${videoId}`, {
         headers: { Authorization: token }
       });
-      setComments(res.data);
+      const sorted = [...res.data].sort((a, b) => {
+        if (a.page != null && b.page != null) return a.page - b.page;
+        if (a.timestamp != null && b.timestamp != null) return a.timestamp - b.timestamp;
+        return a.id - b.id;
+      });
+      setComments(sorted);
     } catch (err) {
       console.error("Failed to update reaction:", err);
     }
