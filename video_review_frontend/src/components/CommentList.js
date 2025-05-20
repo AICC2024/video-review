@@ -8,7 +8,22 @@ const CommentList = ({ videoId }) => {
   const [editingId, setEditingId] = useState(null);
   const [editedTextMap, setEditedTextMap] = useState({});
   const [addToId, setAddToId] = useState(null);
+
   const [additionalText, setAdditionalText] = useState("");
+
+  // Helper: sort and set comments, log and expose sorted for debugging
+  const sortAndSetComments = (commentsArr) => {
+    const sorted = [...commentsArr].sort((a, b) => {
+      const pageA = parseInt(a.page) || -1;
+      const pageB = parseInt(b.page) || -1;
+      if (pageA !== pageB) return pageA - pageB;
+      return (a.id || 0) - (b.id || 0);
+    });
+
+    console.log("📊 Sorted:", sorted.map(c => [c.page, c.id]));
+    window._sorted = sorted;
+    setComments(sorted);
+  };
 
 
   // Add reaction and persist to backend, then immediately update UI with latest comments
@@ -27,7 +42,7 @@ const CommentList = ({ videoId }) => {
       const res = await axios.get(`${BACKEND_URL}/comments/${videoId}`, {
         headers: { Authorization: token }
       });
-      setComments(res.data);
+      sortAndSetComments(res.data);
     } catch (err) {
       console.error("Failed to update reaction:", err);
     }
@@ -43,7 +58,8 @@ const CommentList = ({ videoId }) => {
           headers: { Authorization: token }
         });
         console.log("Fetched updated comments:", res.data);
-        setComments(res.data);
+        window._comments = res.data;
+        sortAndSetComments(res.data);
       } catch (err) {
         console.error("Failed to load comments:", err);
       }
@@ -97,7 +113,7 @@ const CommentList = ({ videoId }) => {
         headers: { Authorization: token }
       });
       console.log("Fetched updated comments:", res.data);
-      setComments(res.data);
+      sortAndSetComments(res.data);
       setEditingId(null);
       setEditedTextMap({});
     } catch (err) {
@@ -116,7 +132,7 @@ const CommentList = ({ videoId }) => {
         withCredentials: false,
         headers: { Authorization: token }
       });
-      setComments(res.data);
+      sortAndSetComments(res.data);
     } catch (err) {
       console.error("Failed to delete comment:", err);
     }
@@ -166,7 +182,7 @@ const CommentList = ({ videoId }) => {
               }}
             >
               <strong style={{ display: "block", color: "#555", marginBottom: "0.25rem" }}>
-                {c.page
+                {c.page != null && c.page !== 0 && c.page !== "0"
                   ? `📄 Page ${c.page}`
                   : `${c.timestamp} seconds`}
               </strong>
