@@ -11,17 +11,22 @@ const CommentList = ({ videoId }) => {
 
   const [additionalText, setAdditionalText] = useState("");
 
-  // Helper: sort and set comments, log and expose sorted for debugging
+  // Helper: sort and set comments for video or storyboard
   const sortAndSetComments = (commentsArr) => {
+    const isVideo = commentsArr.every(c => c.page == null || c.page === 0 || c.page === "0");
+
     const sorted = [...commentsArr].sort((a, b) => {
-      const pageA = parseInt(a.page) || -1;
-      const pageB = parseInt(b.page) || -1;
-      if (pageA !== pageB) return pageA - pageB;
-      return (a.id || 0) - (b.id || 0);
+      if (!isVideo) {
+        const pageA = parseInt(a.page) || -1;
+        const pageB = parseInt(b.page) || -1;
+        return pageA - pageB;
+      } else {
+        const timeA = parseFloat(a.timestamp) || 0;
+        const timeB = parseFloat(b.timestamp) || 0;
+        return timeA - timeB;
+      }
     });
 
-    console.log("📊 Sorted:", sorted.map(c => [c.page, c.id]));
-    window._sorted = sorted;
     setComments(sorted);
   };
 
@@ -184,7 +189,11 @@ const CommentList = ({ videoId }) => {
               <strong style={{ display: "block", color: "#555", marginBottom: "0.25rem" }}>
                 {c.page != null && c.page !== 0 && c.page !== "0"
                   ? `📄 Page ${c.page}`
-                  : `${c.timestamp} seconds`}
+                  : (() => {
+                      const minutes = Math.floor(c.timestamp / 60);
+                      const seconds = Math.floor(c.timestamp % 60).toString().padStart(2, '0');
+                      return `${minutes}:${seconds}`;
+                    })()}
               </strong>
               {editingId === commentId ? (
                 <div>
