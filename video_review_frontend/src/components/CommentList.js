@@ -12,21 +12,26 @@ const CommentList = ({ videoId }) => {
   const [additionalText, setAdditionalText] = useState("");
 
   // Helper: sort and set comments for video or storyboard
+  // - If all comments have no page (null/0/"0"), treat as video: sort by timestamp
+  // - If any comment has a page (not null/0/"0"), treat as storyboard: sort by page
   const sortAndSetComments = (commentsArr) => {
-    const isVideo = commentsArr.every(c => c.page == null || c.page === 0 || c.page === "0");
-
+    // Detect whether this is a storyboard (has any page) or a video (all page null/0/"0")
+    const isStoryboard = commentsArr.some(
+      c => c.page != null && c.page !== 0 && c.page !== "0"
+    );
     const sorted = [...commentsArr].sort((a, b) => {
-      if (!isVideo) {
+      if (isStoryboard) {
+        // Storyboard: sort by page (page is required)
         const pageA = parseInt(a.page) || -1;
         const pageB = parseInt(b.page) || -1;
         return pageA - pageB;
       } else {
+        // Video: sort by timestamp
         const timeA = parseFloat(a.timestamp) || 0;
         const timeB = parseFloat(b.timestamp) || 0;
         return timeA - timeB;
       }
     });
-
     setComments(sorted);
   };
 
@@ -187,7 +192,7 @@ const CommentList = ({ videoId }) => {
               }}
             >
               <strong style={{ display: "block", color: "#555", marginBottom: "0.25rem" }}>
-                {c.page != null && c.page !== 0 && c.page !== "0"
+                {c.page && parseInt(c.page) > 0
                   ? `📄 Page ${c.page}`
                   : (() => {
                       const minutes = Math.floor(c.timestamp / 60);

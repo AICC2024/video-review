@@ -9,6 +9,8 @@ import VideoUpload from "./components/VideoUpload";
 import AdminUpload from "./components/AdminUpload";
 import MediaSelector from "./components/MediaSelector";
 import PdfRegionCommenter from "./components/PdfRegionCommenter";
+import SilasChatPanel from "./components/SilasChatPanel";
+import PreviousCommentsPanel from "./components/PreviousCommentsPanel";
 
 function MainApp() {
   const { videoParamId } = useParams();
@@ -62,6 +64,26 @@ function MainApp() {
   const [mediaType, setMediaType] = useState("videos");
   const [selectedAsset, setSelectedAsset] = useState(videoUrl || "");
   const [mediaOptions, setMediaOptions] = useState([]);
+
+  const [silasReviewing, setSilasReviewing] = useState(false);
+  const [showSilasChat, setShowSilasChat] = useState(false);
+
+  const [showPreviousComments, setShowPreviousComments] = useState(false);
+  const [previousVideoId, setPreviousVideoId] = useState("");
+  const [previousVideoIds, setPreviousVideoIds] = useState([]);
+  // Fetch unique video_ids for previous review selection
+  useEffect(() => {
+    const fetchPreviousVideoIds = async () => {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/comments/unique_video_ids`);
+        // Expecting an array of video ids
+        setPreviousVideoIds(res.data);
+      } catch (error) {
+        console.error("Failed to fetch previous video ids:", error);
+      }
+    };
+    fetchPreviousVideoIds();
+  }, [videoId]);
 
   useEffect(() => {
     const fetchMedia = async () => {
@@ -117,7 +139,8 @@ function MainApp() {
   }
 
   return (
-    <div style={{ padding: "2rem" }}>
+    <div style={{ paddingRight: showSilasChat || showPreviousComments ? "360px" : "0", transition: "padding-right 0.2s ease" }}>
+      <div style={{ padding: "2rem" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
           <img src="/naveon-logo.png" alt="Naveon Logo" style={{ height: "40px" }} />
@@ -239,6 +262,85 @@ function MainApp() {
                   {copied && <span style={{ color: "#4caf50", fontSize: "0.85rem" }}>Copied!</span>}
                 </div>
               </div>
+
+              <button
+                onClick={async () => {
+                  setSilasReviewing(true);
+                  try {
+                    const res = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/silas/review`, {
+                      file_url: selectedAsset,
+                      media_type: mediaType,
+                      video_id: videoId
+                    });
+                    alert(`✅ SILAS completed: ${res.data.comments_added} comments`);
+                    window.dispatchEvent(new Event("comments-updated"));
+                  } catch (err) {
+                    alert("❌ SILAS review failed.");
+                    console.error(err);
+                  } finally {
+                    setSilasReviewing(false);
+                  }
+                }}
+                disabled={silasReviewing}
+                style={{
+                  padding: "0.5rem 1rem",
+                  fontSize: "0.95rem",
+                  borderRadius: "4px",
+                  backgroundColor: silasReviewing ? "#aaa" : "#512da8",
+                  color: "#fff",
+                  border: "none",
+                  cursor: silasReviewing ? "not-allowed" : "pointer"
+                }}
+              >
+                {silasReviewing ? "Reviewing..." : "🧠 SILAS Review"}
+              </button>
+
+              <button
+                onClick={() => setShowSilasChat(prev => !prev)}
+                style={{
+                  padding: "0.5rem 1rem",
+                  fontSize: "0.95rem",
+                  borderRadius: "4px",
+                  backgroundColor: "#0288d1",
+                  color: "#fff",
+                  border: "none",
+                  cursor: "pointer"
+                }}
+              >
+                💬 Chat with SILAS
+              </button>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                <label htmlFor="previousVersion">Previous Review:</label>
+                <select
+                  id="previousVersion"
+                  value={previousVideoId}
+                  onChange={(e) => setPreviousVideoId(e.target.value)}
+                  style={{ padding: "0.4rem", border: "1px solid #ccc", borderRadius: "4px", minWidth: "180px" }}
+                >
+                  <option value="">Select previous review...</option>
+                  {previousVideoIds.map((vid) => (
+                    <option key={vid} value={vid}>
+                      {vid}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => setShowPreviousComments((prev) => !prev)}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    fontSize: "0.95rem",
+                    borderRadius: "4px",
+                    backgroundColor: "#6d4c41",
+                    color: "#fff",
+                    border: "none",
+                    cursor: "pointer"
+                  }}
+                  disabled={!previousVideoId}
+                >
+                  🗂 View Previous Comments
+                </button>
+              </div>
             </div>
           )}
           {showUpload && (
@@ -296,6 +398,21 @@ function MainApp() {
       {console.log("Passing current page to comment form:", pdfCurrentPage)}
       <CommentForm videoId={videoId} snapshot={pdfSnapshot} page={pdfCurrentPage} />
       <CommentList videoId={videoId} />
+        {showSilasChat && (
+          <SilasChatPanel
+            fileUrl={selectedAsset}
+            mediaType={mediaType}
+            videoId={videoId}
+            onClose={() => setShowSilasChat(false)}
+          />
+        )}
+        {showPreviousComments && previousVideoId && (
+          <PreviousCommentsPanel
+            previousVideoId={previousVideoId}
+            onClose={() => setShowPreviousComments(false)}
+          />
+        )}
+      </div>
     </div>
   );
 }

@@ -1,3 +1,10 @@
+from openai import OpenAI
+from dotenv import load_dotenv
+import os
+from pathlib import Path
+load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
+import time
+openai = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 from flask import Flask, request, jsonify, send_from_directory, send_file, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
@@ -7,7 +14,6 @@ import json
 from sqlalchemy.ext.mutable import MutableDict
 from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
-import os
 from werkzeug.utils import secure_filename, safe_join
 from docx import Document
 import boto3
@@ -48,8 +54,15 @@ class Comment(db.Model):
     comment = db.Column(db.Text, nullable=False)
     user = db.Column(db.String(120), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    reactions = db.Column(MutableDict.as_mutable(db.JSON), default=dict)  # new line added
+    reactions = db.Column(MutableDict.as_mutable(db.JSON), default=dict)
     page = db.Column(db.Integer, nullable=True)
+
+# --- SlidePage model for storing full text of each storyboard page ---
+class SlidePage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    video_id = db.Column(db.String(120), nullable=False, index=True)
+    page_number = db.Column(db.Integer, nullable=False)
+    content = db.Column(db.Text, nullable=False)
 
 
 # User registration route
@@ -107,6 +120,17 @@ def get_comments(video_id):
         }
         for c in comments
     ])
+
+# Route to get unique video_ids from the comments table
+@app.route('/comments/unique_video_ids', methods=['GET'])
+def get_unique_video_ids():
+    try:
+        results = db.session.query(Comment.video_id).distinct().all()
+        unique_ids = [row[0] for row in results if row[0]]
+        return jsonify(unique_ids)
+    except Exception as e:
+        print("Error fetching unique video_ids:", e)
+        return jsonify([]), 500
 
 
 @app.after_request
@@ -323,3 +347,164 @@ def list_media_by_type():
     except Exception as e:
         print(f"[❌] Failed to list {category} from S3:", str(e))
         return jsonify({'error': 'Failed to list media files'}), 500
+
+
+# --- SILAS AI Review Endpoint ---
+@app.route('/silas/review', methods=['POST'])
+def silas_review():
+    """
+    Accepts a PDF URL, downloads it, extracts each page's text, sends each page to SILAS individually,
+    and stores each returned comment with the correct page number.
+    """
+    import requests
+    import fitz  # PyMuPDF
+    data = request.json
+    file_url = data.get("file_url")
+    media_type = data.get("media_type")
+    video_id = data.get("video_id")
+
+    if not file_url or not media_type or not video_id:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    # Only handle PDFs for now (storyboards)
+    if not file_url.lower().endswith(".pdf"):
+        return jsonify({"error": "Only PDF review is supported in this endpoint"}), 400
+
+    try:
+        # Download PDF
+        resp = requests.get(file_url)
+        if resp.status_code != 200:
+            return jsonify({"error": "Failed to download PDF"}), 400
+
+        # Load PDF into PyMuPDF
+        pdf_bytes = resp.content
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        num_pages = doc.page_count
+
+        comments_added = 0
+        for page_num in range(num_pages):
+            page = doc.load_page(page_num)
+            page_text = page.get_text().strip()
+            if not page_text:
+                continue
+            print(f"📄 Page {page_num+1} content preview:\n{page_text[:200]}...\n")
+            # Save the full text of this page to SlidePage (overwrite if already exists)
+            existing_page = SlidePage.query.filter_by(video_id=video_id, page_number=page_num+1).first()
+            if existing_page:
+                existing_page.content = page_text
+            else:
+                db.session.add(SlidePage(
+                    video_id=video_id,
+                    page_number=page_num+1,
+                    content=page_text
+                ))
+            # Compose prompt for SILAS for this page
+            prompt = (
+                f"Please review the following storyboard page (page {page_num+1} of {num_pages}) and provide structured feedback using the format: Overall Tone, What Works, Suggestions.\n\n"
+                f"Page Content:\n{page_text}"
+            )
+            # Create thread for this page
+            thread = openai.beta.threads.create()
+            openai.beta.threads.messages.create(
+                thread_id=thread.id,
+                role="user",
+                content=prompt
+            )
+            run = openai.beta.threads.runs.create(
+                thread_id=thread.id,
+                assistant_id="asst_qzufAu2hayE8qVL6FJEVYDOX",
+                instructions="Analyze this storyboard page and return structured suggestions as comments."
+            )
+            # Poll for result
+            for _ in range(20):
+                run_status = openai.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
+                if run_status.status == "completed":
+                    break
+                time.sleep(2)
+            else:
+                continue  # skip this page if timeout
+            messages = openai.beta.threads.messages.list(thread_id=thread.id)
+            latest_reply = messages.data[0].content[0].text.value.strip()
+            print(f"🧠 SILAS reply for page {page_num+1}:\n{latest_reply[:300]}...\n")
+            # Save as comment, with correct page number (1-based)
+            new_comment = Comment(
+                video_id=video_id,
+                page=page_num + 1,
+                timestamp="0",
+                comment=latest_reply + "\n\n-- SILAS (AI Reviewer)",
+                user="SILAS"
+            )
+            db.session.add(new_comment)
+            comments_added += 1
+        db.session.commit()
+        return jsonify({"status": "SILAS review completed", "comments_added": comments_added, "pages_reviewed": num_pages})
+    except Exception as e:
+        print("SILAS error:", str(e))
+        return jsonify({"error": "SILAS review failed"}), 500
+
+
+# --- SILAS Chat Endpoint ---
+@app.route('/silas/chat', methods=['POST'])
+def silas_chat():
+    data = request.json
+    message = data.get("message", "").strip()
+    file_url = data.get("file_url")
+    media_type = data.get("media_type")
+    video_id = data.get("video_id")
+
+    if not message:
+        return jsonify({"error": "Missing message"}), 400
+
+    try:
+        # Load all comments for the video and format them
+        all_comments = []
+        comment_context = ""
+        page_context = ""
+        if video_id:
+            all_comments = Comment.query.filter_by(video_id=video_id).order_by(Comment.id.asc()).all()
+            comment_context = "\n".join([
+                f"{c.timestamp or '0:00'} - {c.user}: {c.comment}" for c in all_comments
+            ])
+            # Load all SlidePage entries for this video_id
+            all_pages = SlidePage.query.filter_by(video_id=video_id).order_by(SlidePage.page_number.asc()).all()
+            if all_pages:
+                page_context = "\n\n".join([
+                    f"Page {p.page_number}:\n{p.content.strip()}" for p in all_pages
+                ])
+
+        thread = openai.beta.threads.create()
+
+        prompt = (
+            f"You are SILAS. The user has a question about this {media_type}.\n"
+            f"File: {file_url}\n\n"
+            f"Storyboard pages:\n{page_context}\n\n"
+            f"Comments so far:\n{comment_context}\n\n"
+            f"Question: {message}"
+        )
+        openai.beta.threads.messages.create(
+            thread_id=thread.id,
+            role="user",
+            content=prompt
+        )
+
+        run = openai.beta.threads.runs.create(
+            thread_id=thread.id,
+            assistant_id="asst_qzufAu2hayE8qVL6FJEVYDOX",
+            instructions="Answer as SILAS in a warm, clear, and supportive tone. Use both the page content and the comment history for context."
+        )
+
+        for _ in range(20):
+            run_status = openai.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
+            if run_status.status == "completed":
+                break
+            time.sleep(2)
+        else:
+            return jsonify({"error": "SILAS response timeout"}), 500
+
+        messages = openai.beta.threads.messages.list(thread_id=thread.id)
+        reply = messages.data[0].content[0].text.value.strip()
+        return jsonify({"response": reply})
+
+    except Exception as e:
+        print("SILAS chat error:", str(e))
+        return jsonify({"error": "SILAS chat failed"}), 500
