@@ -17,8 +17,9 @@ services:
       - key: FLASK_ENV
         sync: false
 
-  - type: static
+  - type: web
     name: naveon-video-review
+    env: static
     rootDir: video_review_backend/video_review_frontend
     buildCommand: npm install && npm run build
     staticPublishPath: build
