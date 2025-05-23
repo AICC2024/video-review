@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: video-review-backend
+    env: python
+    rootDir: video_review_backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: FLASK_ENV
+        sync: false
+
+  - type: static
+    name: naveon-video-review
+    rootDir: video_review_backend/video_review_frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: build
+    envVars:
+      - key: REACT_APP_BACKEND_URL
+        sync: false
