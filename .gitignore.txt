@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+.env
+venv/
+..
+# Node
+node_modules/
+build/
+dist/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# Temp / uploads
+uploads/
+exports/
+*.sqlite3
+# Frontend React build & cache
+video_review_backend/video_review_frontend/build/
+video_review_backend/video_review_frontend/node_modules/.cache/

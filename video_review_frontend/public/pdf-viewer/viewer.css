@@ -1072,12 +1072,12 @@
 .annotationEditorLayer
   :is(.freeTextEditor, .inkEditor, .stampEditor, .highlightEditor) .editToolbar .buttons .delete::before{
           content:"";
-          -webkit-ma***REMOVED***image:var(--editor-toolbar-delete-image);
-                  ma***REMOVED***image:var(--editor-toolbar-delete-image);
-          -webkit-ma***REMOVED***repeat:no-repeat;
-                  ma***REMOVED***repeat:no-repeat;
-          -webkit-ma***REMOVED***position:center;
-                  ma***REMOVED***position:center;
+          -webkit-mask-image:var(--editor-toolbar-delete-image);
+                  mask-image:var(--editor-toolbar-delete-image);
+          -webkit-mask-repeat:no-repeat;
+                  mask-repeat:no-repeat;
+          -webkit-mask-position:center;
+                  mask-position:center;
           display:inline-block;
           background-color:var(--editor-toolbar-fg-color);
           width:100%;
@@ -1147,12 +1147,12 @@
 .annotationEditorLayer
   :is(.freeTextEditor, .inkEditor, .stampEditor, .highlightEditor) .editToolbar .buttons .altText::before{
           content:"";
-          -webkit-ma***REMOVED***image:var(--alt-text-add-image);
-                  ma***REMOVED***image:var(--alt-text-add-image);
-          -webkit-ma***REMOVED***repeat:no-repeat;
-                  ma***REMOVED***repeat:no-repeat;
-          -webkit-ma***REMOVED***position:center;
-                  ma***REMOVED***position:center;
+          -webkit-mask-image:var(--alt-text-add-image);
+                  mask-image:var(--alt-text-add-image);
+          -webkit-mask-repeat:no-repeat;
+                  mask-repeat:no-repeat;
+          -webkit-mask-position:center;
+                  mask-position:center;
           display:inline-block;
           width:12px;
           height:13px;
@@ -1167,8 +1167,8 @@
 
 .annotationEditorLayer
   :is(.freeTextEditor, .inkEditor, .stampEditor, .highlightEditor) .editToolbar .buttons .altText.done::before{
-          -webkit-ma***REMOVED***image:var(--alt-text-done-image);
-                  ma***REMOVED***image:var(--alt-text-done-image);
+          -webkit-mask-image:var(--alt-text-done-image);
+                  mask-image:var(--alt-text-done-image);
         }
 
 .annotationEditorLayer
@@ -1996,12 +1996,12 @@
 
 .annotationEditorLayer .highlightEditor .editToolbar .buttons .colorPicker::after{
             content:"";
-            -webkit-ma***REMOVED***image:var(--editor-toolbar-colorpicker-arrow-image);
-                    ma***REMOVED***image:var(--editor-toolbar-colorpicker-arrow-image);
-            -webkit-ma***REMOVED***repeat:no-repeat;
-                    ma***REMOVED***repeat:no-repeat;
-            -webkit-ma***REMOVED***position:center;
-                    ma***REMOVED***position:center;
+            -webkit-mask-image:var(--editor-toolbar-colorpicker-arrow-image);
+                    mask-image:var(--editor-toolbar-colorpicker-arrow-image);
+            -webkit-mask-repeat:no-repeat;
+                    mask-repeat:no-repeat;
+            -webkit-mask-position:center;
+                    mask-position:center;
             display:inline-block;
             background-color:var(--editor-toolbar-fg-color);
             width:12px;
@@ -2916,8 +2916,8 @@ body{
 }
 
 #editorStampAddImage::before{
-  -webkit-ma***REMOVED***image:var(--editorParams-stampAddImage-icon);
-          ma***REMOVED***image:var(--editorParams-stampAddImage-icon);
+  -webkit-mask-image:var(--editorParams-stampAddImage-icon);
+          mask-image:var(--editorParams-stampAddImage-icon);
 }
 
 .doorHanger,
@@ -3128,8 +3128,8 @@ body{
   top:6px;
   inset-inline-end:6px;
   pointer-events:none;
-  -webkit-ma***REMOVED***image:var(--toolbarButton-menuArrow-icon);
-          ma***REMOVED***image:var(--toolbarButton-menuArrow-icon);
+  -webkit-mask-image:var(--toolbarButton-menuArrow-icon);
+          mask-image:var(--toolbarButton-menuArrow-icon);
 }
 
 .dropdownToolbarButton > select{
@@ -3171,8 +3171,8 @@ body{
 
   content:"";
   background-color:var(--toolbar-icon-bg-color);
-  -webkit-ma***REMOVED***size:cover;
-          ma***REMOVED***size:cover;
+  -webkit-mask-size:cover;
+          mask-size:cover;
 }
 
 .dropdownToolbarButton:is(:hover, :focus-visible, :active)::after{
@@ -3197,85 +3197,85 @@ body{
 }
 
 #sidebarToggle::before{
-  -webkit-ma***REMOVED***image:var(--toolbarButton-sidebarToggle-icon);
-          ma***REMOVED***image:var(--toolbarButton-sidebarToggle-icon);
+  -webkit-mask-image:var(--toolbarButton-sidebarToggle-icon);
+          mask-image:var(--toolbarButton-sidebarToggle-icon);
   transform:scaleX(var(--dir-factor));
 }
 
 #secondaryToolbarToggle::before{
-  -webkit-ma***REMOVED***image:var(--toolbarButton-secondaryToolbarToggle-icon);
-          ma***REMOVED***image:var(--toolbarButton-secondaryToolbarToggle-icon);
+  -webkit-mask-image:var(--toolbarButton-secondaryToolbarToggle-icon);
+          mask-image:var(--toolbarButton-secondaryToolbarToggle-icon);
   transform:scaleX(var(--dir-factor));
 }
 
 #findPrevious::before{
-  -webkit-ma***REMOVED***image:var(--findbarButton-previous-icon);
-          ma***REMOVED***image:var(--findbarButton-previous-icon);
+  -webkit-mask-image:var(--findbarButton-previous-icon);
+          mask-image:var(--findbarButton-previous-icon);
 }
 
 #findNext::before{
-  -webkit-ma***REMOVED***image:var(--findbarButton-next-icon);
-          ma***REMOVED***image:var(--findbarButton-next-icon);
+  -webkit-mask-image:var(--findbarButton-next-icon);
+          mask-image:var(--findbarButton-next-icon);
 }
 
 #previous::before{
-  -webkit-ma***REMOVED***image:var(--toolbarButton-pageUp-icon);
-          ma***REMOVED***image:var(--toolbarButton-pageUp-icon);
+  -webkit-mask-image:var(--toolbarButton-pageUp-icon);
+          mask-image:var(--toolbarButton-pageUp-icon);
 }
 
 #next::before{
-  -webkit-ma***REMOVED***image:var(--toolbarButton-pageDown-icon);
-          ma***REMOVED***image:var(--toolbarButton-pageDown-icon);
+  -webkit-mask-image:var(--toolbarButton-pageDown-icon);
+          mask-image:var(--toolbarButton-pageDown-icon);
 }
 
 #zoomOut::before{
-  -webkit-ma***REMOVED***image:var(--toolbarButton-zoomOut-icon);
-          ma***REMOVED***image:var(--toolbarButton-zoomOut-icon);
+  -webkit-mask-image:var(--toolbarButton-zoomOut-icon);
+          mask-image:var(--toolbarButton-zoomOut-icon);
 }
 
 #zoomIn::before{
-  -webkit-ma***REMOVED***image:var(--toolbarButton-zoomIn-icon);
-          ma***REMOVED***image:var(--toolbarButton-zoomIn-icon);
+  -webkit-mask-image:var(--toolbarButton-zoomIn-icon);
+          mask-image:var(--toolbarButton-zoomIn-icon);
 }
 
 #presentationMode::before{
-  -webkit-ma***REMOVED***image:var(--toolbarButton-presentationMode-icon);
-          ma***REMOVED***image:var(--toolbarButton-presentationMode-icon);
+  -webkit-mask-image:var(--toolbarButton-presentationMode-icon);
+          mask-image:var(--toolbarButton-presentationMode-icon);
 }
 
 #editorFreeText::before{
-  -webkit-ma***REMOVED***image:var(--toolbarButton-editorFreeText-icon);
-          ma***REMOVED***image:var(--toolbarButton-editorFreeText-icon);
+  -webkit-mask-image:var(--toolbarButton-editorFreeText-icon);
+          mask-image:var(--toolbarButton-editorFreeText-icon);
 }
 
 #editorHighlight::before{
-  -webkit-ma***REMOVED***image:var(--toolbarButton-editorHighlight-icon);
-          ma***REMOVED***image:var(--toolbarButton-editorHighlight-icon);
+  -webkit-mask-image:var(--toolbarButton-editorHighlight-icon);
+          mask-image:var(--toolbarButton-editorHighlight-icon);
 }
 
 #editorInk::before{
-  -webkit-ma***REMOVED***image:var(--toolbarButton-editorInk-icon);
-          ma***REMOVED***image:var(--toolbarButton-editorInk-icon);
+  -webkit-mask-image:var(--toolbarButton-editorInk-icon);
+          mask-image:var(--toolbarButton-editorInk-icon);
 }
 
 #editorStamp::before{
-  -webkit-ma***REMOVED***image:var(--toolbarButton-editorStamp-icon);
-          ma***REMOVED***image:var(--toolbarButton-editorStamp-icon);
+  -webkit-mask-image:var(--toolbarButton-editorStamp-icon);
+          mask-image:var(--toolbarButton-editorStamp-icon);
 }
 
 :is(#print, #secondaryPrint)::before{
-  -webkit-ma***REMOVED***image:var(--toolbarButton-print-icon);
-          ma***REMOVED***image:var(--toolbarButton-print-icon);
+  -webkit-mask-image:var(--toolbarButton-print-icon);
+          mask-image:var(--toolbarButton-print-icon);
 }
 
 #secondaryOpenFile::before{
-  -webkit-ma***REMOVED***image:var(--toolbarButton-openFile-icon);
-          ma***REMOVED***image:var(--toolbarButton-openFile-icon);
+  -webkit-mask-image:var(--toolbarButton-openFile-icon);
+          mask-image:var(--toolbarButton-openFile-icon);
 }
 
 :is(#download, #secondaryDownload)::before{
-  -webkit-ma***REMOVED***image:var(--toolbarButton-download-icon);
-          ma***REMOVED***image:var(--toolbarButton-download-icon);
+  -webkit-mask-image:var(--toolbarButton-download-icon);
+          mask-image:var(--toolbarButton-download-icon);
 }
 
 a.secondaryToolbarButton{
@@ -3288,40 +3288,40 @@ a:is(.toolbarButton, .secondaryToolbarButton)[href="#"]{
 }
 
 #viewBookmark::before{
-  -webkit-ma***REMOVED***image:var(--toolbarButton-bookmark-icon);
-          ma***REMOVED***image:var(--toolbarButton-bookmark-icon);
+  -webkit-mask-image:var(--toolbarButton-bookmark-icon);
+          mask-image:var(--toolbarButton-bookmark-icon);
 }
 
 #viewThumbnail::before{
-  -webkit-ma***REMOVED***image:var(--toolbarButton-viewThumbnail-icon);
-          ma***REMOVED***image:var(--toolbarButton-viewThumbnail-icon);
+  -webkit-mask-image:var(--toolbarButton-viewThumbnail-icon);
+          mask-image:var(--toolbarButton-viewThumbnail-icon);
 }
 
 #viewOutline::before{
-  -webkit-ma***REMOVED***image:var(--toolbarButton-viewOutline-icon);
-          ma***REMOVED***image:var(--toolbarButton-viewOutline-icon);
+  -webkit-mask-image:var(--toolbarButton-viewOutline-icon);
+          mask-image:var(--toolbarButton-viewOutline-icon);
   transform:scaleX(var(--dir-factor));
 }
 
 #viewAttachments::before{
-  -webkit-ma***REMOVED***image:var(--toolbarButton-viewAttachments-icon);
-          ma***REMOVED***image:var(--toolbarButton-viewAttachments-icon);
+  -webkit-mask-image:var(--toolbarButton-viewAttachments-icon);
+          mask-image:var(--toolbarButton-viewAttachments-icon);
 }
 
 #viewLayers::before{
-  -webkit-ma***REMOVED***image:var(--toolbarButton-viewLayers-icon);
-          ma***REMOVED***image:var(--toolbarButton-viewLayers-icon);
+  -webkit-mask-image:var(--toolbarButton-viewLayers-icon);
+          mask-image:var(--toolbarButton-viewLayers-icon);
 }
 
 #currentOutlineItem::before{
-  -webkit-ma***REMOVED***image:var(--toolbarButton-currentOutlineItem-icon);
-          ma***REMOVED***image:var(--toolbarButton-currentOutlineItem-icon);
+  -webkit-mask-image:var(--toolbarButton-currentOutlineItem-icon);
+          mask-image:var(--toolbarButton-currentOutlineItem-icon);
   transform:scaleX(var(--dir-factor));
 }
 
 #viewFind::before{
-  -webkit-ma***REMOVED***image:var(--toolbarButton-search-icon);
-          ma***REMOVED***image:var(--toolbarButton-search-icon);
+  -webkit-mask-image:var(--toolbarButton-search-icon);
+          mask-image:var(--toolbarButton-search-icon);
 }
 
 .pdfSidebarNotification::after{
@@ -3356,73 +3356,73 @@ a:is(.toolbarButton, .secondaryToolbarButton)[href="#"]{
 }
 
 #firstPage::before{
-  -webkit-ma***REMOVED***image:var(--secondaryToolbarButton-firstPage-icon);
-          ma***REMOVED***image:var(--secondaryToolbarButton-firstPage-icon);
+  -webkit-mask-image:var(--secondaryToolbarButton-firstPage-icon);
+          mask-image:var(--secondaryToolbarButton-firstPage-icon);
 }
 
 #lastPage::before{
-  -webkit-ma***REMOVED***image:var(--secondaryToolbarButton-lastPage-icon);
-          ma***REMOVED***image:var(--secondaryToolbarButton-lastPage-icon);
+  -webkit-mask-image:var(--secondaryToolbarButton-lastPage-icon);
+          mask-image:var(--secondaryToolbarButton-lastPage-icon);
 }
 
 #pageRotateCcw::before{
-  -webkit-ma***REMOVED***image:var(--secondaryToolbarButton-rotateCcw-icon);
-          ma***REMOVED***image:var(--secondaryToolbarButton-rotateCcw-icon);
+  -webkit-mask-image:var(--secondaryToolbarButton-rotateCcw-icon);
+          mask-image:var(--secondaryToolbarButton-rotateCcw-icon);
 }
 
 #pageRotateCw::before{
-  -webkit-ma***REMOVED***image:var(--secondaryToolbarButton-rotateCw-icon);
-          ma***REMOVED***image:var(--secondaryToolbarButton-rotateCw-icon);
+  -webkit-mask-image:var(--secondaryToolbarButton-rotateCw-icon);
+          mask-image:var(--secondaryToolbarButton-rotateCw-icon);
 }
 
 #cursorSelectTool::before{
-  -webkit-ma***REMOVED***image:var(--secondaryToolbarButton-selectTool-icon);
-          ma***REMOVED***image:var(--secondaryToolbarButton-selectTool-icon);
+  -webkit-mask-image:var(--secondaryToolbarButton-selectTool-icon);
+          mask-image:var(--secondaryToolbarButton-selectTool-icon);
 }
 
 #cursorHandTool::before{
-  -webkit-ma***REMOVED***image:var(--secondaryToolbarButton-handTool-icon);
-          ma***REMOVED***image:var(--secondaryToolbarButton-handTool-icon);
+  -webkit-mask-image:var(--secondaryToolbarButton-handTool-icon);
+          mask-image:var(--secondaryToolbarButton-handTool-icon);
 }
 
 #scrollPage::before{
-  -webkit-ma***REMOVED***image:var(--secondaryToolbarButton-scrollPage-icon);
-          ma***REMOVED***image:var(--secondaryToolbarButton-scrollPage-icon);
+  -webkit-mask-image:var(--secondaryToolbarButton-scrollPage-icon);
+          mask-image:var(--secondaryToolbarButton-scrollPage-icon);
 }
 
 #scrollVertical::before{
-  -webkit-ma***REMOVED***image:var(--secondaryToolbarButton-scrollVertical-icon);
-          ma***REMOVED***image:var(--secondaryToolbarButton-scrollVertical-icon);
+  -webkit-mask-image:var(--secondaryToolbarButton-scrollVertical-icon);
+          mask-image:var(--secondaryToolbarButton-scrollVertical-icon);
 }
 
 #scrollHorizontal::before{
-  -webkit-ma***REMOVED***image:var(--secondaryToolbarButton-scrollHorizontal-icon);
-          ma***REMOVED***image:var(--secondaryToolbarButton-scrollHorizontal-icon);
+  -webkit-mask-image:var(--secondaryToolbarButton-scrollHorizontal-icon);
+          mask-image:var(--secondaryToolbarButton-scrollHorizontal-icon);
 }
 
 #scrollWrapped::before{
-  -webkit-ma***REMOVED***image:var(--secondaryToolbarButton-scrollWrapped-icon);
-          ma***REMOVED***image:var(--secondaryToolbarButton-scrollWrapped-icon);
+  -webkit-mask-image:var(--secondaryToolbarButton-scrollWrapped-icon);
+          mask-image:var(--secondaryToolbarButton-scrollWrapped-icon);
 }
 
 #spreadNone::before{
-  -webkit-ma***REMOVED***image:var(--secondaryToolbarButton-spreadNone-icon);
-          ma***REMOVED***image:var(--secondaryToolbarButton-spreadNone-icon);
+  -webkit-mask-image:var(--secondaryToolbarButton-spreadNone-icon);
+          mask-image:var(--secondaryToolbarButton-spreadNone-icon);
 }
 
 #spreadOdd::before{
-  -webkit-ma***REMOVED***image:var(--secondaryToolbarButton-spreadOdd-icon);
-          ma***REMOVED***image:var(--secondaryToolbarButton-spreadOdd-icon);
+  -webkit-mask-image:var(--secondaryToolbarButton-spreadOdd-icon);
+          mask-image:var(--secondaryToolbarButton-spreadOdd-icon);
 }
 
 #spreadEven::before{
-  -webkit-ma***REMOVED***image:var(--secondaryToolbarButton-spreadEven-icon);
-          ma***REMOVED***image:var(--secondaryToolbarButton-spreadEven-icon);
+  -webkit-mask-image:var(--secondaryToolbarButton-spreadEven-icon);
+          mask-image:var(--secondaryToolbarButton-spreadEven-icon);
 }
 
 #documentProperties::before{
-  -webkit-ma***REMOVED***image:var(--secondaryToolbarButton-documentProperties-icon);
-          ma***REMOVED***image:var(--secondaryToolbarButton-documentProperties-icon);
+  -webkit-mask-image:var(--secondaryToolbarButton-documentProperties-icon);
+          mask-image:var(--secondaryToolbarButton-documentProperties-icon);
 }
 
 .verticalToolbarSeparator{
@@ -3490,10 +3490,10 @@ a:is(.toolbarButton, .secondaryToolbarButton)[href="#"]{
 
     content:"";
     background-color:var(--toolbar-icon-bg-color);
-    -webkit-ma***REMOVED***size:cover;
-            ma***REMOVED***size:cover;
-    -webkit-ma***REMOVED***image:var(--loading-icon);
-            ma***REMOVED***image:var(--loading-icon);
+    -webkit-mask-size:cover;
+            mask-size:cover;
+    -webkit-mask-image:var(--loading-icon);
+            mask-image:var(--loading-icon);
   }
 
 .loadingInput.start::after{
@@ -3637,12 +3637,12 @@ a:focus > .thumbnail > .thumbnailImage,
 }
 .treeItemToggler::before{
   inset-inline-end:4px;
-  -webkit-ma***REMOVED***image:var(--treeitem-expanded-icon);
-          ma***REMOVED***image:var(--treeitem-expanded-icon);
+  -webkit-mask-image:var(--treeitem-expanded-icon);
+          mask-image:var(--treeitem-expanded-icon);
 }
 .treeItemToggler.treeItemsHidden::before{
-  -webkit-ma***REMOVED***image:var(--treeitem-collapsed-icon);
-          ma***REMOVED***image:var(--treeitem-collapsed-icon);
+  -webkit-mask-image:var(--treeitem-collapsed-icon);
+          mask-image:var(--treeitem-collapsed-icon);
   transform:scaleX(var(--dir-factor));
 }
 .treeItemToggler.treeItemsHidden ~ .treeItems{

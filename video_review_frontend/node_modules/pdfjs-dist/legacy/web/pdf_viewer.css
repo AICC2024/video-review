@@ -356,10 +356,10 @@
           display:inline-block;
           width:16px;
           height:16px;
-          -webkit-ma***REMOVED***image:var(--message-bar-warning-icon);
-                  ma***REMOVED***image:var(--message-bar-warning-icon);
-          -webkit-ma***REMOVED***size:cover;
-                  ma***REMOVED***size:cover;
+          -webkit-mask-image:var(--message-bar-warning-icon);
+                  mask-image:var(--message-bar-warning-icon);
+          -webkit-mask-size:cover;
+                  mask-size:cover;
           background-color:var(--message-bar-icon-color);
         }
 
@@ -396,10 +396,10 @@
           display:inline-block;
           width:16px;
           height:16px;
-          -webkit-ma***REMOVED***image:var(--closing-button-icon);
-                  ma***REMOVED***image:var(--closing-button-icon);
-          -webkit-ma***REMOVED***size:cover;
-                  ma***REMOVED***size:cover;
+          -webkit-mask-image:var(--closing-button-icon);
+                  mask-image:var(--closing-button-icon);
+          -webkit-mask-size:cover;
+                  mask-size:cover;
           background-color:var(--message-bar-close-button-color);
         }
 
@@ -1830,12 +1830,12 @@
 
 :is(:is(:is(:is(.annotationEditorLayer :is(.freeTextEditor,.inkEditor,.stampEditor,.highlightEditor),.textLayer) .editToolbar) .buttons) .highlightButton)::before{
           content:"";
-          -webkit-ma***REMOVED***image:var(--editor-toolbar-highlight-image);
-                  ma***REMOVED***image:var(--editor-toolbar-highlight-image);
-          -webkit-ma***REMOVED***repeat:no-repeat;
-                  ma***REMOVED***repeat:no-repeat;
-          -webkit-ma***REMOVED***position:center;
-                  ma***REMOVED***position:center;
+          -webkit-mask-image:var(--editor-toolbar-highlight-image);
+                  mask-image:var(--editor-toolbar-highlight-image);
+          -webkit-mask-repeat:no-repeat;
+                  mask-repeat:no-repeat;
+          -webkit-mask-position:center;
+                  mask-position:center;
           display:inline-block;
           background-color:var(--editor-toolbar-fg-color);
           width:100%;
@@ -1852,12 +1852,12 @@
 
 :is(:is(:is(:is(.annotationEditorLayer :is(.freeTextEditor,.inkEditor,.stampEditor,.highlightEditor),.textLayer) .editToolbar) .buttons) .delete)::before{
           content:"";
-          -webkit-ma***REMOVED***image:var(--editor-toolbar-delete-image);
-                  ma***REMOVED***image:var(--editor-toolbar-delete-image);
-          -webkit-ma***REMOVED***repeat:no-repeat;
-                  ma***REMOVED***repeat:no-repeat;
-          -webkit-ma***REMOVED***position:center;
-                  ma***REMOVED***position:center;
+          -webkit-mask-image:var(--editor-toolbar-delete-image);
+                  mask-image:var(--editor-toolbar-delete-image);
+          -webkit-mask-repeat:no-repeat;
+                  mask-repeat:no-repeat;
+          -webkit-mask-position:center;
+                  mask-position:center;
           display:inline-block;
           background-color:var(--editor-toolbar-fg-color);
           width:100%;
@@ -1918,12 +1918,12 @@
 
 :is(:is(:is(:is(.annotationEditorLayer :is(.freeTextEditor,.inkEditor,.stampEditor,.highlightEditor),.textLayer) .editToolbar) .buttons) .altText)::before{
           content:"";
-          -webkit-ma***REMOVED***image:var(--alt-text-add-image);
-                  ma***REMOVED***image:var(--alt-text-add-image);
-          -webkit-ma***REMOVED***repeat:no-repeat;
-                  ma***REMOVED***repeat:no-repeat;
-          -webkit-ma***REMOVED***position:center;
-                  ma***REMOVED***position:center;
+          -webkit-mask-image:var(--alt-text-add-image);
+                  mask-image:var(--alt-text-add-image);
+          -webkit-mask-repeat:no-repeat;
+                  mask-repeat:no-repeat;
+          -webkit-mask-position:center;
+                  mask-position:center;
           display:inline-block;
           width:12px;
           height:13px;
@@ -1936,18 +1936,18 @@
         }
 
 .done:is(:is(:is(:is(.annotationEditorLayer :is(.freeTextEditor,.inkEditor,.stampEditor,.highlightEditor),.textLayer) .editToolbar) .buttons) .altText)::before{
-          -webkit-ma***REMOVED***image:var(--alt-text-done-image);
-                  ma***REMOVED***image:var(--alt-text-done-image);
+          -webkit-mask-image:var(--alt-text-done-image);
+                  mask-image:var(--alt-text-done-image);
         }
 
 .new:is(:is(:is(:is(.annotationEditorLayer :is(.freeTextEditor,.inkEditor,.stampEditor,.highlightEditor),.textLayer) .editToolbar) .buttons) .altText)::before{
             width:16px;
             height:16px;
-            -webkit-ma***REMOVED***image:var(--new-alt-text-warning-image);
-                    ma***REMOVED***image:var(--new-alt-text-warning-image);
+            -webkit-mask-image:var(--new-alt-text-warning-image);
+                    mask-image:var(--new-alt-text-warning-image);
             background-color:var(--alt-text-warning-color);
-            -webkit-ma***REMOVED***size:cover;
-                    ma***REMOVED***size:cover;
+            -webkit-mask-size:cover;
+                    mask-size:cover;
           }
 
 .new:is(:is(:is(:is(.annotationEditorLayer :is(.freeTextEditor,.inkEditor,.stampEditor,.highlightEditor),.textLayer) .editToolbar) .buttons) .altText):hover::before{
@@ -1955,8 +1955,8 @@
           }
 
 .new.done:is(:is(:is(:is(.annotationEditorLayer :is(.freeTextEditor,.inkEditor,.stampEditor,.highlightEditor),.textLayer) .editToolbar) .buttons) .altText)::before{
-              -webkit-ma***REMOVED***image:var(--alt-text-done-image);
-                      ma***REMOVED***image:var(--alt-text-done-image);
+              -webkit-mask-image:var(--alt-text-done-image);
+                      mask-image:var(--alt-text-done-image);
               background-color:var(--alt-text-done-color);
             }
 
@@ -2144,10 +2144,10 @@
       display:inline-block;
       width:16px;
       height:16px;
-      -webkit-ma***REMOVED***image:var(--new-alt-text-warning-image);
-              ma***REMOVED***image:var(--new-alt-text-warning-image);
-      -webkit-ma***REMOVED***size:cover;
-              ma***REMOVED***size:cover;
+      -webkit-mask-image:var(--new-alt-text-warning-image);
+              mask-image:var(--new-alt-text-warning-image);
+      -webkit-mask-size:cover;
+              mask-size:cover;
       background-color:var(--no-alt-text-badge-fg-color);
     }
 
@@ -2457,8 +2457,8 @@
             height:16px;
             inset-inline-start:8px;
             inset-block-start:8px;
-            -webkit-ma***REMOVED***size:cover;
-                    ma***REMOVED***size:cover;
+            -webkit-mask-size:cover;
+                    mask-size:cover;
             background-color:var(--text-secondary-color);
             pointer-events:none;
           }
@@ -2473,8 +2473,8 @@
 
 .loading:is(:is(:is(:is(.dialog.newAltText #newAltTextContainer) #mainContent) #descriptionInstruction) #newAltTextDescriptionContainer) .altTextSpinner{
               display:inline-block;
-              -webkit-ma***REMOVED***image:var(--new-alt-text-spinner-icon);
-                      ma***REMOVED***image:var(--new-alt-text-spinner-icon);
+              -webkit-mask-image:var(--new-alt-text-spinner-icon);
+                      mask-image:var(--new-alt-text-spinner-icon);
             }
 
 :is(:is(:is(.dialog.newAltText #newAltTextContainer) #mainContent) #descriptionInstruction) #newAltTextDescription{
@@ -2494,10 +2494,10 @@
             display:inline-block;
             width:17px;
             height:16px;
-            -webkit-ma***REMOVED***image:var(--new-alt-text-ai-disclaimer-icon);
-                    ma***REMOVED***image:var(--new-alt-text-ai-disclaimer-icon);
-            -webkit-ma***REMOVED***size:cover;
-                    ma***REMOVED***size:cover;
+            -webkit-mask-image:var(--new-alt-text-ai-disclaimer-icon);
+                    mask-image:var(--new-alt-text-ai-disclaimer-icon);
+            -webkit-mask-size:cover;
+                    mask-size:cover;
             background-color:var(--text-secondary-color);
             flex:1 0 auto;
           }
@@ -2514,10 +2514,10 @@
           display:inline-block;
           width:16px;
           height:16px;
-          -webkit-ma***REMOVED***image:var(--new-alt-text-spinner-icon);
-                  ma***REMOVED***image:var(--new-alt-text-spinner-icon);
-          -webkit-ma***REMOVED***size:cover;
-                  ma***REMOVED***size:cover;
+          -webkit-mask-image:var(--new-alt-text-spinner-icon);
+                  mask-image:var(--new-alt-text-spinner-icon);
+          -webkit-mask-size:cover;
+                  mask-size:cover;
           background-color:var(--text-secondary-color);
         }
 
@@ -2643,12 +2643,12 @@
 
 :is(:is(:is(:is(.annotationEditorLayer .highlightEditor) .editToolbar) .buttons) .colorPicker)::after{
             content:"";
-            -webkit-ma***REMOVED***image:var(--editor-toolbar-colorpicker-arrow-image);
-                    ma***REMOVED***image:var(--editor-toolbar-colorpicker-arrow-image);
-            -webkit-ma***REMOVED***repeat:no-repeat;
-                    ma***REMOVED***repeat:no-repeat;
-            -webkit-ma***REMOVED***position:center;
-                    ma***REMOVED***position:center;
+            -webkit-mask-image:var(--editor-toolbar-colorpicker-arrow-image);
+                    mask-image:var(--editor-toolbar-colorpicker-arrow-image);
+            -webkit-mask-repeat:no-repeat;
+                    mask-repeat:no-repeat;
+            -webkit-mask-position:center;
+                    mask-position:center;
             display:inline-block;
             background-color:var(--editor-toolbar-fg-color);
             width:12px;
