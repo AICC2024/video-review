@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
@@ -10,6 +10,9 @@ const CommentList = ({ videoId }) => {
   const [addToId, setAddToId] = useState(null);
 
   const [additionalText, setAdditionalText] = useState("");
+  const [isPolling, setIsPolling] = useState(false);
+  const lastCommentCountRef = useRef(0);
+  const pollTimerRef = useRef(null);
 
   // Helper: sort and set comments for video or storyboard
   // - If all comments have no page (null/0/"0"), treat as video: sort by timestamp
@@ -69,18 +72,55 @@ const CommentList = ({ videoId }) => {
         });
         console.log("Fetched updated comments:", res.data);
         window._comments = res.data;
-        sortAndSetComments(res.data);
+        return res.data;
       } catch (err) {
         console.error("Failed to load comments:", err);
+        return [];
       }
     };
 
-    fetchComments();
+    const listener = (e) => {
+      fetchComments().then((res) => {
+        sortAndSetComments([...res]);
+        if (e?.detail?.callback) {
+          e.detail.callback(res.length);
+        }
 
-    const listener = () => fetchComments();
+        // Show "🟡 Live" briefly when new comment(s) detected
+        if (res.length > lastCommentCountRef.current) {
+          lastCommentCountRef.current = res.length;
+          setIsPolling(true);
+          if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+          pollTimerRef.current = setTimeout(() => {
+            setIsPolling(false);
+          }, 3000); // show "Live" for 3 seconds after a new comment
+        }
+      });
+    };
+
+    fetchComments().then((res) => {
+      sortAndSetComments([...res]);
+      lastCommentCountRef.current = Array.isArray(res) ? res.length : 0;
+    });
+
     window.addEventListener("comments-updated", listener);
 
+    // Polling interval for live comment updates (every 3 seconds)
+    const pollInterval = setInterval(() => {
+      if (!videoId) return;
+      const event = new CustomEvent("comments-updated", {
+        detail: {
+          callback: (commentCount) => {
+            console.log("🛑 Polling callback (comments):", commentCount);
+          }
+        }
+      });
+      window.dispatchEvent(event);
+    }, 3000);
+
     return () => {
+      clearInterval(pollInterval);
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
       window.removeEventListener("comments-updated", listener);
     };
   }, [videoId]);
@@ -174,6 +214,11 @@ const CommentList = ({ videoId }) => {
       <h2 style={{ marginBottom: "1rem", fontSize: "1.5rem", fontWeight: "600", color: "#333" }}>
         Comments
       </h2>
+      {isPolling && (
+        <div style={{ marginBottom: "1rem", color: "#f9a825", fontWeight: 500 }}>
+          🟡 Live
+        </div>
+      )}
       <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
         {comments.map((c) => {
           if (!c || !c.timestamp || !c.comment || typeof c.id !== "number") return null;
@@ -191,14 +236,18 @@ const CommentList = ({ videoId }) => {
                 marginBottom: "0.75rem"
               }}
             >
-              <strong style={{ display: "block", color: "#555", marginBottom: "0.25rem" }}>
-                {c.page && parseInt(c.page) > 0
-                  ? `📄 Page ${c.page}`
-                  : (() => {
-                      const minutes = Math.floor(c.timestamp / 60);
-                      const seconds = Math.floor(c.timestamp % 60).toString().padStart(2, '0');
-                      return `${minutes}:${seconds}`;
-                    })()}
+              <strong
+                style={{ display: "block", color: "#555", marginBottom: "0.25rem" }}
+              >
+                {c.page && parseInt(c.page) > 0 ? (
+                  <>📄 Page {c.page}</>
+                ) : (
+                  (() => {
+                    const minutes = Math.floor(c.timestamp / 60);
+                    const seconds = Math.floor(c.timestamp % 60).toString().padStart(2, '0');
+                    return `${minutes}:${seconds}`;
+                  })()
+                )}
               </strong>
               {editingId === commentId ? (
                 <div>

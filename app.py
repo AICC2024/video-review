@@ -1,4 +1,5 @@
 from openai import OpenAI
+import base64
 from dotenv import load_dotenv
 import os
 from pathlib import Path
@@ -259,7 +260,7 @@ def uploaded_file(filename):
 
 @app.route('/export/<video_id>', methods=['GET'])
 def export_comments(video_id):
-    comments = Comment.query.filter_by(video_id=video_id).order_by(Comment.timestamp).all()
+    comments = Comment.query.filter_by(video_id=video_id).order_by(Comment.page.nullslast(), Comment.timestamp).all()
 
     base_filename = f"{video_id}_v"
     existing_versions = [f for f in os.listdir(EXPORT_FOLDER) if f.startswith(base_filename) and f.endswith(".docx")]
@@ -385,10 +386,8 @@ def silas_review():
         for page_num in range(num_pages):
             page = doc.load_page(page_num)
             page_text = page.get_text().strip()
-            if not page_text:
-                continue
-            print(f"📄 Page {page_num+1} content preview:\n{page_text[:200]}...\n")
-            # Save the full text of this page to SlidePage (overwrite if already exists)
+
+            # Save the page text for reference but always use Vision for review
             existing_page = SlidePage.query.filter_by(video_id=video_id, page_number=page_num+1).first()
             if existing_page:
                 existing_page.content = page_text
@@ -398,45 +397,54 @@ def silas_review():
                     page_number=page_num+1,
                     content=page_text
                 ))
-            # Compose prompt for SILAS for this page
-            prompt = (
-                f"Please review the following storyboard page (page {page_num+1} of {num_pages}) and provide structured feedback using the format: Overall Tone, What Works, Suggestions.\n\n"
-                f"Page Content:\n{page_text}"
+
+            # Run GPT-4o Vision review regardless of text content
+            pix = page.get_pixmap(dpi=150)
+            img_bytes = pix.tobytes("png")
+            img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+
+            vision_prompt = [
+                {
+                    "type": "text",
+                    "text": f"Please review this storyboard slide (Page {page_num + 1}). Provide only 2–3 specific, visual improvements. Base your feedback on what you clearly see in the slide and its narration. Avoid vague language like 'if not already present' and do not include Overall Tone or What Works unless explicitly instructed."
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/png;base64,{img_b64}"
+                    }
+                }
+            ]
+
+            response = openai.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are SILAS, which stands for Serious Illness Learning AI Service. You are a Healthcare Educator and Professional Videographer specializing in Serious Illness Education. Your primary function is to review and help improve educational media for patients and families dealing with serious illnesses.\n\nYou will be asked to review: PDF storyboards and MP4 videos. Each PDF page typically represents a slide. Provide feedback per slide or scene.\n\nYour goals are:\n• To provide feedback on communication quality, emotional tone, clarity, diversity of images, and educational accuracy.\n\nWhen you are reviewing a storyboard, each page contains:\n• A visual scene or slide (usually an illustration or design)\n• A small text box at the bottom, which contains the narration script (voiceover), not on-screen text\n\nPart of your job is to:\n• Determine if the visual elements effectively support the narration\n• Ensure the imagery is relevant, clear, and emotionally aligned with the script\n• Do not suggest visual improvements based on text readability unless that text is meant to appear onscreen\n\nIn your feedback:\n• Reference the visual in the context of the narration\n• Respond with 2–3 specific, visual improvement ideas. Do not include section headers like 'Suggestions' unless explicitly asked.\n\nIn chat mode, answer questions clearly and reference specific media elements when relevant (e.g., “In Slide 3…” or “At 1:42…”). Be warm and constructive. Do not be overly verbose. If any part of the input is unclear, ask the user for clarification before responding."
+                    },
+                    {
+                        "role": "user",
+                        "content": vision_prompt
+                    }
+                ],
+                max_tokens=1000
             )
-            # Create thread for this page
-            thread = openai.beta.threads.create()
-            openai.beta.threads.messages.create(
-                thread_id=thread.id,
-                role="user",
-                content=prompt
-            )
-            run = openai.beta.threads.runs.create(
-                thread_id=thread.id,
-                assistant_id="asst_qzufAu2hayE8qVL6FJEVYDOX",
-                instructions="Analyze this storyboard page and return structured suggestions as comments."
-            )
-            # Poll for result
-            for _ in range(20):
-                run_status = openai.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
-                if run_status.status == "completed":
-                    break
-                time.sleep(2)
-            else:
-                continue  # skip this page if timeout
-            messages = openai.beta.threads.messages.list(thread_id=thread.id)
-            latest_reply = messages.data[0].content[0].text.value.strip()
-            print(f"🧠 SILAS reply for page {page_num+1}:\n{latest_reply[:300]}...\n")
-            # Save as comment, with correct page number (1-based)
+
+            raw_reply = response.choices[0].message.content.strip()
+            stripped_reply = raw_reply.replace("**", "")
+            formatted_reply = f"Slide {page_num + 1}: {stripped_reply}"
+
             new_comment = Comment(
                 video_id=video_id,
                 page=page_num + 1,
                 timestamp="0",
-                comment=latest_reply + "\n\n-- SILAS (AI Reviewer)",
+                comment=formatted_reply + "\n\n-- SILAS (Vision Review)",
                 user="SILAS"
             )
             db.session.add(new_comment)
+            db.session.commit()
             comments_added += 1
-        db.session.commit()
         return jsonify({"status": "SILAS review completed", "comments_added": comments_added, "pages_reviewed": num_pages})
     except Exception as e:
         print("SILAS error:", str(e))
@@ -456,6 +464,7 @@ def silas_chat():
         return jsonify({"error": "Missing message"}), 400
 
     try:
+        chat_image = data.get("chat_image")
         # Load all comments for the video and format them
         all_comments = []
         comment_context = ""
@@ -472,37 +481,84 @@ def silas_chat():
                     f"Page {p.page_number}:\n{p.content.strip()}" for p in all_pages
                 ])
 
-        thread = openai.beta.threads.create()
-
-        prompt = (
-            f"You are SILAS. The user has a question about this {media_type}.\n"
-            f"File: {file_url}\n\n"
-            f"Storyboard pages:\n{page_context}\n\n"
-            f"Comments so far:\n{comment_context}\n\n"
-            f"Question: {message}"
-        )
-        openai.beta.threads.messages.create(
-            thread_id=thread.id,
-            role="user",
-            content=prompt
-        )
-
-        run = openai.beta.threads.runs.create(
-            thread_id=thread.id,
-            assistant_id="asst_qzufAu2hayE8qVL6FJEVYDOX",
-            instructions="Answer as SILAS in a warm, clear, and supportive tone. Use both the page content and the comment history for context."
-        )
-
-        for _ in range(20):
-            run_status = openai.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
-            if run_status.status == "completed":
-                break
-            time.sleep(2)
+        if chat_image:
+            prompt = (
+                "You have been provided an uploaded image. The user may ask about the image's contents. "
+                "Please prioritize the image over other document context if questions reference it directly.\n\n"
+                f"User Question: {message}\n\n"
+                f"Storyboard Pages (if relevant):\n{page_context}\n\nComments:\n{comment_context}"
+            )
         else:
-            return jsonify({"error": "SILAS response timeout"}), 500
+            prompt = (
+                f"You are SILAS. The user has a question about this {media_type}.\n"
+                f"File: {file_url}\n\n"
+                f"Storyboard pages:\n{page_context}\n\n"
+                f"Comments so far:\n{comment_context}\n\n"
+                f"Question: {message}"
+            )
 
-        messages = openai.beta.threads.messages.list(thread_id=thread.id)
-        reply = messages.data[0].content[0].text.value.strip()
+        # Check if message references a specific page and prepare image prompt if needed
+        import re
+        img_prompt = None
+        page_match = re.search(r"\bpage (\d{1,2})\b", message, re.IGNORECASE)
+        if page_match and file_url and file_url.lower().endswith(".pdf"):
+            try:
+                import fitz
+                import requests
+                page_index = int(page_match.group(1)) - 1
+                resp = requests.get(file_url)
+                if resp.status_code == 200:
+                    doc = fitz.open(stream=resp.content, filetype="pdf")
+                    if 0 <= page_index < doc.page_count:
+                        page = doc.load_page(page_index)
+                        pix = page.get_pixmap(dpi=150)
+                        img_bytes = pix.tobytes("png")
+                        img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+                        img_prompt = {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{img_b64}",
+                                "detail": "auto"
+                            }
+                        }
+            except Exception as e:
+                print(f"[⚠️] Failed to attach page image to chat prompt: {e}")
+
+        # Prioritize PDF page reference over uploaded image
+        if page_match and file_url and file_url.lower().endswith(".pdf"):
+            chat_image = None  # Discard screenshot if user asked about a page
+        elif chat_image and chat_image.startswith("data:image/"):
+            img_prompt = {
+                "type": "image_url",
+                "image_url": {
+                    "url": chat_image,
+                    "detail": "auto"
+                }
+            }
+
+        chat_response = openai.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are SILAS, a helpful and supportive assistant that reviews educational media. "
+                        "You may receive an uploaded image and/or references to specific page numbers. "
+                        "If the user mentions 'this image', assume they are referring to an uploaded screenshot. "
+                        "If they reference a page number (e.g., 'page 3'), use that page from the storyboard PDF instead. "
+                        "If both an image and a page are present, prioritize based on what the user clearly refers to. "
+                        "Always clarify your reference in your reply (e.g., 'Based on page 2' or 'In the uploaded image'). "
+                        "If the context is unclear, ask the user a clarifying question before answering."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": [{"type": "text", "text": prompt}] + ([img_prompt] if img_prompt else [])
+                }
+            ]
+        )
+
+        reply = chat_response.choices[0].message.content.strip()
         return jsonify({"response": reply})
 
     except Exception as e:

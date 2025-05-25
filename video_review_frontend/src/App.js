@@ -1,5 +1,5 @@
 import axios from "axios";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import VideoPlayer from "./components/VideoPlayer";
 import CommentForm from "./components/CommentForm";
@@ -15,6 +15,8 @@ import PreviousCommentsPanel from "./components/PreviousCommentsPanel";
 function MainApp() {
   const { videoParamId } = useParams();
   const navigate = useNavigate();
+  const [chatImage, setChatImage] = useState(null);
+  const fileInputRef = useRef(null);
   const [user, setUser] = useState(() => {
     const token = localStorage.getItem("token");
     const username = localStorage.getItem("username");
@@ -45,13 +47,39 @@ function MainApp() {
         setPdfSnapshot({ page, image });
       }
       if (event.data.type === "PDF_PAGE_SYNC") {
+        // console.log("📥 Received PDF_PAGE_SYNC:", event.data);
         setPdfCurrentPage(event.data.page);
+        // Capture total page count if provided
+        if (event.data.totalPages) {
+          setSilasTotalPages(event.data.totalPages);
+        }
       }
     }
 
     window.addEventListener("message", handlePdfSnapshot);
     return () => {
       window.removeEventListener("message", handlePdfSnapshot);
+    };
+  }, []);
+
+  // Listen for URL hash changes and post JUMP_TO_PAGE to PDF viewer
+  useEffect(() => {
+    const handleHashJump = () => {
+      const match = window.location.hash.match(/^#slide-(\d+)$/);
+      if (match) {
+        const page = parseInt(match[1], 10);
+        const iframe = document.querySelector("iframe");
+        if (iframe) {
+          iframe.contentWindow.postMessage({ type: "JUMP_TO_PAGE", page }, "*");
+        }
+      }
+    };
+
+    window.addEventListener("hashchange", handleHashJump);
+    handleHashJump(); // catch initial hash
+
+    return () => {
+      window.removeEventListener("hashchange", handleHashJump);
     };
   }, []);
 
@@ -66,11 +94,17 @@ function MainApp() {
   const [mediaOptions, setMediaOptions] = useState([]);
 
   const [silasReviewing, setSilasReviewing] = useState(false);
+  const [silasProgressPage, setSilasProgressPage] = useState(null);
+  const [silasTotalPages, setSilasTotalPages] = useState(null);
   const [showSilasChat, setShowSilasChat] = useState(false);
 
   const [showPreviousComments, setShowPreviousComments] = useState(false);
   const [previousVideoId, setPreviousVideoId] = useState("");
   const [previousVideoIds, setPreviousVideoIds] = useState([]);
+
+  // Toast message state for SILAS review result
+  const [toastMessage, setToastMessage] = useState("");
+
   // Fetch unique video_ids for previous review selection
   useEffect(() => {
     const fetchPreviousVideoIds = async () => {
@@ -266,19 +300,47 @@ function MainApp() {
               <button
                 onClick={async () => {
                   setSilasReviewing(true);
+                  let lastCommentCount = 0;
+                  let unchangedCount = 0;
+
+                  const pollInterval = setInterval(() => {
+                    const event = new CustomEvent("comments-updated", {
+                      detail: {
+                        callback: (commentCount) => {
+                          if (commentCount === lastCommentCount) {
+                            unchangedCount += 1;
+                          } else {
+                            unchangedCount = 0;
+                            lastCommentCount = commentCount;
+                          }
+                          if (unchangedCount >= 5) {
+                            clearInterval(pollInterval);
+                            console.log("🛑 Stopped polling after 15 seconds of no changes");
+                          }
+                        }
+                      }
+                    });
+                    window.dispatchEvent(event);
+                  }, 3000);
+
                   try {
                     const res = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/silas/review`, {
                       file_url: selectedAsset,
                       media_type: mediaType,
                       video_id: videoId
                     });
-                    alert(`✅ SILAS completed: ${res.data.comments_added} comments`);
+
+                    setToastMessage(`✅ SILAS completed: ${res.data.comments_added} comments`);
+                    setTimeout(() => setToastMessage(""), 5000); // clear toast after 5s
                     window.dispatchEvent(new Event("comments-updated"));
                   } catch (err) {
-                    alert("❌ SILAS review failed.");
+                    setToastMessage("❌ SILAS review failed.");
+                    setTimeout(() => setToastMessage(""), 5000);
                     console.error(err);
                   } finally {
                     setSilasReviewing(false);
+                    setSilasProgressPage(null);
+                    setSilasTotalPages(null);
                   }
                 }}
                 disabled={silasReviewing}
@@ -309,6 +371,7 @@ function MainApp() {
               >
                 💬 Chat with SILAS
               </button>
+
 
               <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
                 <label htmlFor="previousVersion">Previous Review:</label>
@@ -395,7 +458,6 @@ function MainApp() {
       ) : (
         <VideoPlayer videoUrl={videoUrl} key={videoUrl} />
       )}
-      {console.log("Passing current page to comment form:", pdfCurrentPage)}
       <CommentForm videoId={videoId} snapshot={pdfSnapshot} page={pdfCurrentPage} />
       <CommentList videoId={videoId} />
         {showSilasChat && (
@@ -404,6 +466,7 @@ function MainApp() {
             mediaType={mediaType}
             videoId={videoId}
             onClose={() => setShowSilasChat(false)}
+            chatImage={chatImage}
           />
         )}
         {showPreviousComments && previousVideoId && (
@@ -411,6 +474,21 @@ function MainApp() {
             previousVideoId={previousVideoId}
             onClose={() => setShowPreviousComments(false)}
           />
+        )}
+        {toastMessage && (
+          <div style={{
+            position: "fixed",
+            bottom: "1rem",
+            right: "1rem",
+            backgroundColor: "#333",
+            color: "#fff",
+            padding: "0.75rem 1rem",
+            borderRadius: "6px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+            zIndex: 9999
+          }}>
+            {toastMessage}
+          </div>
         )}
       </div>
     </div>

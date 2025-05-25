@@ -22,6 +22,20 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
+// Listen for messages from parent window to jump to a specific page
+window.addEventListener("message", (event) => {
+  if (event.data?.type === "JUMP_TO_PAGE") {
+    const targetPage = event.data.page;
+    if (
+      typeof targetPage === "number" &&
+      PDFViewerApplication?.pdfViewer &&
+      Number.isInteger(targetPage)
+    ) {
+      PDFViewerApplication.pdfViewer.currentPageNumber = targetPage;
+    }
+  }
+});
 // Add any PDF.js-specific startup hooks if needed
 window.addEventListener("webviewerloaded", () => {
   console.log("✅ PDF viewer loaded (viewer.js)");
@@ -15157,3 +15171,16 @@ document.addEventListener("DOMContentLoaded", () => {
 /******/ 
 
 //# sourceMappingURL=viewer.mjs.map
+// Sync PDF page count and current page to parent window after viewer is ready
+if (window.PDFViewerApplication && window.PDFViewerApplication.eventBus) {
+  window.PDFViewerApplication.eventBus.on("pagesinit", function () {
+    const total = window.PDFViewerApplication.pagesCount;
+    const current = window.PDFViewerApplication.pdfViewer.currentPageNumber;
+
+    window.parent.postMessage({
+      type: "PDF_PAGE_SYNC",
+      page: current,
+      totalPages: total
+    }, "*");
+  });
+}

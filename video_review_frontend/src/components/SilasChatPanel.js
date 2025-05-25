@@ -1,10 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import axios from "axios";
 
 const SilasChatPanel = ({ fileUrl, mediaType, onClose, videoId }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [chatImage, setChatImage] = useState(null);
+  const fileInputRef = useRef(null);
+  const [toastMessage, setToastMessage] = useState("");
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -19,7 +22,8 @@ const SilasChatPanel = ({ fileUrl, mediaType, onClose, videoId }) => {
         message: input,
         file_url: fileUrl,
         media_type: mediaType,
-        video_id: videoId
+        video_id: videoId,
+        chat_image: chatImage
       });
 
       const silasMessage = { sender: "silas", text: res.data.response };
@@ -79,7 +83,39 @@ const SilasChatPanel = ({ fileUrl, mediaType, onClose, videoId }) => {
         backgroundColor: "#f5f5f5",
         borderTop: "1px solid #ccc"
       }}>
-        <div style={{ display: "flex", gap: "0.5rem" }}>
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          <input
+            type="file"
+            accept="image/png, image/jpeg"
+            ref={fileInputRef}
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const file = e.target.files[0];
+              if (file) {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                  setChatImage(reader.result);
+                  setToastMessage("📎 Image uploaded successfully");
+                  setTimeout(() => setToastMessage(""), 3000);
+                };
+                reader.readAsDataURL(file);
+              }
+            }}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            title="Attach Image"
+            style={{
+              padding: "0.5rem",
+              fontSize: "1.25rem",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "#555"
+            }}
+          >
+            📎
+          </button>
           <input
             type="text"
             placeholder="Ask a question..."
@@ -111,6 +147,21 @@ const SilasChatPanel = ({ fileUrl, mediaType, onClose, videoId }) => {
           </button>
         </div>
       </div>
+      {toastMessage && (
+        <div style={{
+          position: "fixed",
+          bottom: "1rem",
+          right: "1rem",
+          backgroundColor: "#333",
+          color: "#fff",
+          padding: "0.75rem 1rem",
+          borderRadius: "6px",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+          zIndex: 99999
+        }}>
+          {toastMessage}
+        </div>
+      )}
     </div>
   );
 };
