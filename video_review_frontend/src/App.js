@@ -172,6 +172,54 @@ function MainApp() {
     return <AuthForm onAuthSuccess={setUser} />;
   }
 
+  // Handle SILAS review button click
+  const handleSilasReview = async () => {
+    if (silasReviewing) return; // Prevent duplicate clicks
+    setSilasReviewing(true);
+
+    let lastCommentCount = 0;
+    let unchangedCount = 0;
+
+    const pollInterval = setInterval(() => {
+      const event = new CustomEvent("comments-updated", {
+        detail: {
+          callback: (commentCount) => {
+            if (commentCount === lastCommentCount) {
+              unchangedCount += 1;
+            } else {
+              unchangedCount = 0;
+              lastCommentCount = commentCount;
+            }
+            if (unchangedCount >= 5) {
+              clearInterval(pollInterval);
+              console.log("🛑 Stopped polling after 15 seconds of no changes");
+            }
+          }
+        }
+      });
+      window.dispatchEvent(event);
+    }, 3000);
+
+    try {
+      await axios.post(`${process.env.REACT_APP_BACKEND_URL}/silas/review_async`, {
+        file_url: selectedAsset,
+        media_type: mediaType,
+        video_id: videoId
+      });
+      setToastMessage("✅ SILAS review started. Comments will appear as they are added.");
+      setTimeout(() => setToastMessage(""), 5000);
+    } catch (err) {
+      setToastMessage("❌ SILAS review failed.");
+      setTimeout(() => setToastMessage(""), 5000);
+      console.error(err);
+    } finally {
+      setTimeout(() => {
+        setSilasReviewing(false);
+        setSilasProgressPage(null);
+        setSilasTotalPages(null);
+      }, 16000); // matches 5x3s polling + 1s buffer
+    }
+  };
   return (
     <div style={{ paddingRight: showSilasChat || showPreviousComments ? "360px" : "0", transition: "padding-right 0.2s ease" }}>
       <div style={{ padding: "2rem" }}>
@@ -298,51 +346,7 @@ function MainApp() {
               </div>
 
               <button
-                onClick={async () => {
-                  setSilasReviewing(true);
-                  let lastCommentCount = 0;
-                  let unchangedCount = 0;
-
-                  const pollInterval = setInterval(() => {
-                    const event = new CustomEvent("comments-updated", {
-                      detail: {
-                        callback: (commentCount) => {
-                          if (commentCount === lastCommentCount) {
-                            unchangedCount += 1;
-                          } else {
-                            unchangedCount = 0;
-                            lastCommentCount = commentCount;
-                          }
-                          if (unchangedCount >= 5) {
-                            clearInterval(pollInterval);
-                            console.log("🛑 Stopped polling after 15 seconds of no changes");
-                          }
-                        }
-                      }
-                    });
-                    window.dispatchEvent(event);
-                  }, 3000);
-
-                  try {
-                    const res = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/silas/review`, {
-                      file_url: selectedAsset,
-                      media_type: mediaType,
-                      video_id: videoId
-                    });
-
-                    setToastMessage(`✅ SILAS completed: ${res.data.comments_added} comments`);
-                    setTimeout(() => setToastMessage(""), 5000); // clear toast after 5s
-                    window.dispatchEvent(new Event("comments-updated"));
-                  } catch (err) {
-                    setToastMessage("❌ SILAS review failed.");
-                    setTimeout(() => setToastMessage(""), 5000);
-                    console.error(err);
-                  } finally {
-                    setSilasReviewing(false);
-                    setSilasProgressPage(null);
-                    setSilasTotalPages(null);
-                  }
-                }}
+                onClick={handleSilasReview}
                 disabled={silasReviewing}
                 style={{
                   padding: "0.5rem 1rem",
@@ -351,11 +355,17 @@ function MainApp() {
                   backgroundColor: silasReviewing ? "#aaa" : "#512da8",
                   color: "#fff",
                   border: "none",
-                  cursor: silasReviewing ? "not-allowed" : "pointer"
+                  cursor: "pointer",
+                  opacity: silasReviewing ? 0.6 : 1
                 }}
               >
                 {silasReviewing ? "Reviewing..." : "🧠 SILAS Review"}
               </button>
+              {silasReviewing && (
+                <div style={{ color: "#512da8", fontWeight: 500, marginTop: "0.25rem", fontSize: "0.95rem" }}>
+                  SILAS is processing your review...
+                </div>
+              )}
 
               <button
                 onClick={() => setShowSilasChat(prev => !prev)}
@@ -514,4 +524,3 @@ function App() {
 }
 
 export default App;
-

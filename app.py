@@ -1,3 +1,4 @@
+import threading
 from openai import OpenAI
 import base64
 from dotenv import load_dotenv
@@ -564,3 +565,97 @@ def silas_chat():
     except Exception as e:
         print("SILAS chat error:", str(e))
         return jsonify({"error": "SILAS chat failed"}), 500
+@app.route('/silas/review_async', methods=['POST'])
+def silas_review_async():
+    import requests
+    import fitz
+    data = request.json
+    file_url = data.get("file_url")
+    media_type = data.get("media_type")
+    video_id = data.get("video_id")
+
+    if not file_url or not media_type or not video_id:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    def run_async_review():
+        with app.app_context():
+            try:
+                resp = requests.get(file_url)
+                if resp.status_code == 200:
+                    doc = fitz.open(stream=resp.content, filetype="pdf")
+                    for page_num in range(len(doc)):
+                        try:
+                            page = doc.load_page(page_num)
+                            page_text = page.get_text().strip()
+
+                            existing_page = SlidePage.query.filter_by(video_id=video_id, page_number=page_num+1).first()
+                            if existing_page:
+                                existing_page.content = page_text
+                            else:
+                                db.session.add(SlidePage(
+                                    video_id=video_id,
+                                    page_number=page_num+1,
+                                    content=page_text
+                                ))
+
+                            pix = page.get_pixmap(dpi=150)
+                            img_bytes = pix.tobytes("png")
+                            img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+
+                            vision_prompt = [
+                                {
+                                    "type": "text",
+                                    "text": f"Please review this storyboard slide (Page {page_num + 1}). Provide only 2–3 specific, visual improvements. Base your feedback on what you clearly see in the slide and its narration. Avoid vague language like 'if not already present' and do not include Overall Tone or What Works unless explicitly instructed."
+                                },
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/png;base64,{img_b64}",
+                                        "detail": "auto"
+                                    }
+                                }
+                            ]
+
+                            response = openai.chat.completions.create(
+                                model="gpt-4o",
+                                messages=[
+                                    {
+                                        "role": "system",
+                                        "content": (
+                                            "You are SILAS, a helpful and supportive assistant that reviews educational media. "
+                                            "You may receive an uploaded image and/or references to specific page numbers. "
+                                            "If the user mentions 'this image', assume they are referring to an uploaded screenshot. "
+                                            "If they reference a page number (e.g., 'page 3'), use that page from the storyboard PDF instead. "
+                                            "If both an image and a page are present, prioritize based on what the user clearly refers to. "
+                                            "Always clarify your reference in your reply (e.g., 'Based on page 2' or 'In the uploaded image'). "
+                                            "If the context is unclear, ask the user a clarifying question before answering."
+                                        )
+                                    },
+                                    {
+                                        "role": "user",
+                                        "content": vision_prompt
+                                    }
+                                ],
+                                max_tokens=1000
+                            )
+
+                            raw_reply = response.choices[0].message.content.strip()
+                            stripped_reply = raw_reply.replace("**", "")
+                            formatted_reply = f"Slide {page_num + 1}: {stripped_reply}"
+
+                            new_comment = Comment(
+                                video_id=video_id,
+                                page=page_num + 1,
+                                timestamp="0",
+                                comment=formatted_reply + "\n\n-- SILAS (Vision Review)",
+                                user="SILAS"
+                            )
+                            db.session.add(new_comment)
+                            db.session.commit()
+                        except Exception as page_err:
+                            print(f"[❌] Error processing page {page_num + 1}: {page_err}")
+            except Exception as e:
+                print("[❌] SILAS async thread error:", e)
+
+    threading.Thread(target=run_async_review).start()
+    return jsonify({"status": "SILAS review started"}), 202
