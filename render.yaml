@@ -2,7 +2,7 @@ services:
   - type: web
     name: video-review-backend
     env: python
-    rootDir: video_review_backend
+    rootDir: .
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app
     envVars:
