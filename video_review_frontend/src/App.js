@@ -105,6 +105,19 @@ function MainApp() {
   // Toast message state for SILAS review result
   const [toastMessage, setToastMessage] = useState("");
 
+  // Notify Team Modal state
+  const [isTeamNotifyModalOpen, setIsTeamNotifyModalOpen] = useState(false);
+  const [teamNotifyMessage, setTeamNotifyMessage] = useState("I’ve completed my review.");
+  // Team emails for checkboxes
+  const TEAM_EMAILS = [
+    "matthew@naveonguides.com",
+    "paul@naveonguides.com",
+    "ryan@naveonguides.com",
+    "mark@naveonguides.com"
+  ];
+  const [notifyEmailInput, setNotifyEmailInput] = useState([]);
+  const [notifyExtraEmails, setNotifyExtraEmails] = useState("");
+
   // Fetch unique video_ids for previous review selection
   useEffect(() => {
     const fetchPreviousVideoIds = async () => {
@@ -382,6 +395,21 @@ function MainApp() {
                 💬 Chat with SILAS
               </button>
 
+              <button
+                onClick={() => setIsTeamNotifyModalOpen(true)}
+                style={{
+                  padding: "0.5rem 1rem",
+                  fontSize: "0.95rem",
+                  borderRadius: "4px",
+                  backgroundColor: "#43a047",
+                  color: "#fff",
+                  border: "none",
+                  cursor: "pointer"
+                }}
+              >
+                📣 Notify Team
+              </button>
+
 
               <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
                 <label htmlFor="previousVersion">Previous Review:</label>
@@ -498,6 +526,133 @@ function MainApp() {
             zIndex: 9999
           }}>
             {toastMessage}
+          </div>
+        )}
+        {isTeamNotifyModalOpen && (
+          <div style={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            backgroundColor: "#fff",
+            border: "1px solid #ccc",
+            borderRadius: "8px",
+            padding: "1.5rem",
+            zIndex: 1000,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+            width: "400px"
+          }}>
+            <h3 style={{ marginTop: 0 }}>Notify Team</h3>
+            <p style={{ marginBottom: "0.25rem" }}>Select Recipients:</p>
+            <div style={{ marginBottom: "1rem" }}>
+              <label style={{ display: "block", fontWeight: "500", marginBottom: "0.5rem" }}>
+                <input
+                  type="checkbox"
+                  checked={notifyEmailInput.length === TEAM_EMAILS.length}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setNotifyEmailInput([...TEAM_EMAILS]);
+                    } else {
+                      setNotifyEmailInput([]);
+                    }
+                  }}
+                />{" "}
+                Select All
+              </label>
+              {TEAM_EMAILS.map(email => (
+                <label key={email} style={{ display: "block", marginBottom: "0.25rem" }}>
+                  <input
+                    type="checkbox"
+                    checked={notifyEmailInput.includes(email)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setNotifyEmailInput(prev => [...prev, email]);
+                      } else {
+                        setNotifyEmailInput(prev => prev.filter(addr => addr !== email));
+                      }
+                    }}
+                  />{" "}
+                  {email}
+                </label>
+              ))}
+            </div>
+            <input
+              type="text"
+              placeholder="Add additional email(s), comma separated"
+              value={notifyExtraEmails}
+              onChange={(e) => setNotifyExtraEmails(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                fontSize: "0.95rem",
+                marginBottom: "1rem",
+                border: "1px solid #ccc",
+                borderRadius: "4px"
+              }}
+            />
+            <textarea
+              value={teamNotifyMessage}
+              onChange={(e) => setTeamNotifyMessage(e.target.value)}
+              rows={4}
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                fontSize: "0.95rem",
+                marginBottom: "1rem",
+                border: "1px solid #ccc",
+                borderRadius: "4px"
+              }}
+            />
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
+              <button
+                style={{
+                  backgroundColor: "#aaa",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "4px",
+                  padding: "0.4rem 1rem",
+                  cursor: "pointer"
+                }}
+                onClick={() => setIsTeamNotifyModalOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                style={{
+                  backgroundColor: "#43a047",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "4px",
+                  padding: "0.4rem 1rem",
+                  cursor: "pointer"
+                }}
+                onClick={async () => {
+                  try {
+                    const extraList = notifyExtraEmails.split(",").map(e => e.trim()).filter(Boolean);
+                    const toList = [...notifyEmailInput, ...extraList];
+                    if (!toList.length) return;
+                    await axios.post(`${process.env.REACT_APP_BACKEND_URL}/notify_team`, {
+                      video_id: videoId,
+                      reviewer: user?.username || "Reviewer",
+                      asset_url: `${window.location.origin}/review/${videoId}`,
+                      message: teamNotifyMessage,
+                      to: toList
+                    });
+                    setToastMessage("📣 Team notified successfully.");
+                  } catch (error) {
+                    console.error("Failed to notify team:", error);
+                    setToastMessage("❌ Failed to notify team.");
+                  } finally {
+                    setTimeout(() => setToastMessage(""), 5000);
+                    setIsTeamNotifyModalOpen(false);
+                    setNotifyExtraEmails("");
+                    setNotifyEmailInput([]);
+                  }
+                }}
+              >
+                Send
+              </button>
+            </div>
           </div>
         )}
       </div>

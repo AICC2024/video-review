@@ -1,6 +1,13 @@
 import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 
+const TEAM_EMAILS = [
+  "matthew@naveonguides.com",
+  "paul@naveonguides.com",
+  "ryan@naveonguides.com",
+  "mark@naveonguides.com"
+];
+
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
 
 const CommentList = ({ videoId }) => {
@@ -13,6 +20,14 @@ const CommentList = ({ videoId }) => {
   const [isPolling, setIsPolling] = useState(false);
   const lastCommentCountRef = useRef(0);
   const pollTimerRef = useRef(null);
+
+  // Notify modal state
+  const [isNotifyModalOpen, setIsNotifyModalOpen] = useState(false);
+  const [notifyTargetComment, setNotifyTargetComment] = useState(null);
+  const [notifyEmailInput, setNotifyEmailInput] = useState("");
+
+  // Toast feedback
+  const [toastMessage, setToastMessage] = useState("");
 
   // Helper: sort and set comments for video or storyboard
   // - If all comments have no page (null/0/"0"), treat as video: sort by timestamp
@@ -319,6 +334,19 @@ const CommentList = ({ videoId }) => {
                       </button>
                       <button style={buttonStyle} onClick={() => startEditing(c)}>Edit</button>
                       <button style={deleteButtonStyle} onClick={() => deleteComment(c.id)}>Delete</button>
+                      <button
+                        style={{
+                          ...buttonStyle,
+                          backgroundColor: "#ff9800"
+                        }}
+                        onClick={() => {
+                          setNotifyTargetComment(c);
+                          setNotifyEmailInput("");
+                          setIsNotifyModalOpen(true);
+                        }}
+                      >
+                        @Notify
+                      </button>
                     </div>
                     <div style={{ display: "flex", gap: "0.25rem", fontSize: "1.2rem", minWidth: "70px", justifyContent: "flex-end" }}>
                       {["👍", "❤️", "👎"].map((icon) => {
@@ -387,6 +415,117 @@ const CommentList = ({ videoId }) => {
           );
         })}
       </ul>
+
+      {/* Notify Modal */}
+      {isNotifyModalOpen && notifyTargetComment && (
+        <div style={{
+          position: "fixed",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          backgroundColor: "#fff",
+          border: "1px solid #ccc",
+          borderRadius: "8px",
+          padding: "1.5rem",
+          zIndex: 1000,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+          width: "400px"
+        }}>
+          <h3 style={{ marginTop: 0 }}>Notify Teammates</h3>
+          <p style={{ marginBottom: "0.5rem" }}>Comment:</p>
+          <p style={{ fontStyle: "italic", marginBottom: "1rem" }}>
+            {notifyTargetComment.comment}
+          </p>
+          <input
+            type="text"
+            placeholder="Enter email addresses, comma separated"
+            value={notifyEmailInput}
+            onChange={(e) => setNotifyEmailInput(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "0.5rem",
+              fontSize: "0.95rem",
+              marginBottom: "1rem",
+              border: "1px solid #ccc",
+              borderRadius: "4px"
+            }}
+          />
+          {/* Email suggestions dropdown */}
+          {notifyEmailInput && (
+            <div style={{
+              backgroundColor: "#f1f1f1",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+              marginTop: "-0.5rem",
+              marginBottom: "0.75rem",
+              padding: "0.25rem 0.5rem",
+              fontSize: "0.9rem"
+            }}>
+              {TEAM_EMAILS.filter(e => e.includes(notifyEmailInput.toLowerCase())).map(email => (
+                <div
+                  key={email}
+                  style={{ padding: "0.25rem", cursor: "pointer" }}
+                  onClick={() => setNotifyEmailInput(email)}
+                >
+                  {email}
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
+            <button
+              style={cancelButtonStyle}
+              onClick={() => {
+                setIsNotifyModalOpen(false);
+                setNotifyEmailInput("");
+                setNotifyTargetComment(null);
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              style={buttonStyle}
+              onClick={async () => {
+                const toList = notifyEmailInput.split(",").map(e => e.trim()).filter(Boolean);
+                if (!toList.length) return;
+                const asset_url = `${window.location.origin}/review/${videoId}`;
+                const username = localStorage.getItem("username");
+                await axios.post(`${BACKEND_URL}/notify_comment`, {
+                  video_id: videoId,
+                  page: notifyTargetComment.page,
+                  comment_text: notifyTargetComment.comment,
+                  reviewer: username,
+                  to: toList,
+                  asset_url
+                });
+                setToastMessage("✅ Comment notification sent.");
+                setTimeout(() => setToastMessage(""), 4000);
+                setIsNotifyModalOpen(false);
+                setNotifyEmailInput("");
+                setNotifyTargetComment(null);
+              }}
+            >
+              Send
+            </button>
+          </div>
+        </div>
+      )}
+      {/* Toast message */}
+      {toastMessage && (
+        <div style={{
+          position: "fixed",
+          bottom: "1rem",
+          right: "1rem",
+          backgroundColor: "#333",
+          color: "#fff",
+          padding: "0.75rem 1rem",
+          borderRadius: "6px",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+          zIndex: 9999
+        }}>
+          {toastMessage}
+        </div>
+      )}
     </div>
   );
 };

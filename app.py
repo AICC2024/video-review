@@ -659,3 +659,77 @@ def silas_review_async():
 
     threading.Thread(target=run_async_review).start()
     return jsonify({"status": "SILAS review started"}), 202
+
+
+# --- Notify Team Route ---
+@app.route("/notify_team", methods=["POST"])
+def notify_team():
+    data = request.json
+    video_id = data.get("video_id")
+    reviewer = data.get("reviewer")
+    asset_url = data.get("asset_url")
+    to_addresses = data.get("to")
+
+    if not video_id or not reviewer or not asset_url or not to_addresses:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    try:
+        subject = f"Review Complete: {video_id}"
+        body = (
+            f"{reviewer} has completed their review of {video_id}.\n\n"
+            f"You can view the comments and feedback at:\n{asset_url}"
+        )
+
+        ses_client = boto3.client("ses", region_name=S3_REGION)
+        ses_client.send_email(
+            Source="support@naveonguides.com",
+            Destination={"ToAddresses": to_addresses},
+            Message={
+                "Subject": {"Data": subject},
+                "Body": {"Text": {"Data": body}},
+            }
+        )
+        return jsonify({"status": "Notification sent"}), 200
+
+    except Exception as e:
+        print("[❌] Failed to notify team:", e)
+        return jsonify({"error": "Notification failed"}), 500
+
+
+# --- Notify Comment Route ---
+@app.route("/notify_comment", methods=["POST"])
+def notify_comment():
+    data = request.json
+    video_id = data.get("video_id")
+    page = data.get("page")
+    comment_text = data.get("comment_text")
+    reviewer = data.get("reviewer")
+    to_addresses = data.get("to")  # list of emails
+    asset_url = data.get("asset_url")
+
+    if not video_id or not comment_text or not reviewer or not to_addresses:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    try:
+        subject = f"@Notify from {reviewer} - Comment on {video_id}"
+        page_info = f"Slide {page}" if page else "Timeline Comment"
+        body = (
+            f"{reviewer} tagged you in a comment on {page_info} of {video_id}:\n\n"
+            f"\"{comment_text.strip()}\"\n\n"
+            f"View the full review:\n{asset_url}"
+        )
+
+        ses_client = boto3.client("ses", region_name=S3_REGION)
+        ses_client.send_email(
+            Source="support@naveonguides.com",
+            Destination={"ToAddresses": to_addresses},
+            Message={
+                "Subject": {"Data": subject},
+                "Body": {"Text": {"Data": body}},
+            }
+        )
+        return jsonify({"status": "Comment notification sent"}), 200
+
+    except Exception as e:
+        print("[❌] Failed to send comment notification:", e)
+        return jsonify({"error": "Failed to notify"}), 500
