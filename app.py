@@ -41,6 +41,53 @@ S3_REGION = 'us-east-1'  # change if your bucket is in a different region
 
 s3_client = boto3.client('s3')
 
+# --- Admin List S3 Files Route ---
+@app.route('/admin/list', methods=['GET'])
+def list_s3_files():
+    category = request.args.get("category")
+    if not category:
+        return jsonify({"error": "Missing category"}), 400
+
+    prefix = f"{category}/"
+    try:
+        response = s3_client.list_objects_v2(Bucket=S3_BUCKET, Prefix=prefix)
+        files = [
+            obj["Key"].split("/", 1)[-1]
+            for obj in response.get("Contents", [])
+            if obj["Key"].startswith(prefix) and obj["Key"] != prefix
+        ]
+        return jsonify(files)
+    except Exception as e:
+        print(f"[❌] Failed to list {category} files:", str(e))
+        return jsonify([]), 500
+
+# --- Archive S3 File Route (Soft Delete) ---
+@app.route('/admin/archive', methods=['POST'])
+def archive_s3_file():
+    data = request.json
+    category = data.get("category")
+    filename = data.get("filename")
+
+    if not category or not filename:
+        return jsonify({'error': 'Missing category or filename'}), 400
+
+    original_key = f"{category}/{filename}"
+    archive_key = f"archive/{category}/{filename}"
+
+    try:
+        # Copy the file to the archive location
+        s3_client.copy_object(
+            Bucket=S3_BUCKET,
+            CopySource={'Bucket': S3_BUCKET, 'Key': original_key},
+            Key=archive_key
+        )
+        # Delete the original
+        s3_client.delete_object(Bucket=S3_BUCKET, Key=original_key)
+        return jsonify({'status': 'archived', 'from': original_key, 'to': archive_key})
+    except Exception as e:
+        print(f"[❌] Failed to archive {original_key}:", str(e))
+        return jsonify({'error': 'Failed to archive file'}), 500
+
 db = SQLAlchemy(app)
 
 class User(db.Model):
@@ -677,6 +724,7 @@ def notify_team():
         subject = f"Review Complete: {video_id}"
         body = (
             f"{reviewer} has completed their review of {video_id}.\n\n"
+            f"Message:\n{data.get('message', '[No message provided]')}\n\n"
             f"You can view the comments and feedback at:\n{asset_url}"
         )
 

@@ -23,6 +23,11 @@ function MainApp() {
     return token ? { token, username } : null;
   });
 
+  // Track whether mediaType has been initialized based on videoParamId
+  const [mediaTypeInitialized, setMediaTypeInitialized] = useState(false);
+  // Prevent [mediaType] useEffect from executing too early and overriding the selected asset
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     const username = localStorage.getItem("username");
@@ -89,7 +94,7 @@ function MainApp() {
   const [prevVideoState, setPrevVideoState] = useState({ videoId: null, videoUrl: null });
   const [copied, setCopied] = useState(false);
 
-  const [mediaType, setMediaType] = useState("videos");
+  const [mediaType, setMediaType] = useState(() => localStorage.getItem("mediaType") || "videos");
   const [selectedAsset, setSelectedAsset] = useState(videoUrl || "");
   const [mediaOptions, setMediaOptions] = useState([]);
 
@@ -118,6 +123,37 @@ function MainApp() {
   const [notifyEmailInput, setNotifyEmailInput] = useState([]);
   const [notifyExtraEmails, setNotifyExtraEmails] = useState("");
 
+  // --- PDF/storyboard route initialization logic ---
+  // Ensure PDF/storyboard route is respected on initial URL load
+  useEffect(() => {
+    if (!videoParamId || selectedAsset) return;
+
+    const inferTypeFromId = (id) => {
+      if (id.toLowerCase().includes("storyboard") || id.toLowerCase().endsWith(".pdf")) {
+        return "storyboards";
+      } else if (id.toLowerCase().includes("voice") || id.toLowerCase().endsWith(".mp3")) {
+        return "voiceovers";
+      } else {
+        return "videos";
+      }
+    };
+
+    const inferredType = inferTypeFromId(videoParamId);
+    setMediaType(inferredType);
+    localStorage.setItem("mediaType", inferredType);
+
+    // Attempt to construct an asset path manually if needed
+    const prefix = inferredType === "storyboards"
+      ? "https://naveon-video-storage.s3.amazonaws.com/storyboards/"
+      : inferredType === "voiceovers"
+      ? "https://naveon-video-storage.s3.amazonaws.com/voiceovers/"
+      : "https://naveon-video-storage.s3.amazonaws.com/videos/";
+
+    const guessedUrl = `${prefix}${videoParamId}.pdf`;
+    setSelectedAsset(guessedUrl);
+    setVideoUrl(guessedUrl);
+  }, []);
+
   // Fetch unique video_ids for previous review selection
   useEffect(() => {
     const fetchPreviousVideoIds = async () => {
@@ -133,13 +169,22 @@ function MainApp() {
   }, [videoId]);
 
   useEffect(() => {
+    if (!initialLoadComplete && videoParamId) return;
+
     const fetchMedia = async () => {
       try {
         const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/media?type=${mediaType}`);
         const files = res.data.map((file) => file.url);
         setMediaOptions(files);
         if (files.length > 0) {
-          setSelectedAsset(files[0]);
+          const match = videoParamId
+            ? files.find(f => f.includes(videoParamId))
+            : null;
+          if (match) {
+            setSelectedAsset(match);
+          } else {
+            setSelectedAsset(files[0]);
+          }
         }
       } catch (error) {
         console.error("Failed to fetch media:", error);
@@ -147,11 +192,35 @@ function MainApp() {
     };
 
     fetchMedia();
-  }, [mediaType]);
+  }, [mediaType, initialLoadComplete]);
 
   useEffect(() => {
     if (videoParamId) {
       setVideoId(videoParamId);
+
+      if (!mediaTypeInitialized) {
+        let inferredType = "videos";
+        if (
+          videoParamId.toLowerCase().includes("storyboard") ||
+          videoParamId.toLowerCase().endsWith(".pdf")
+        ) {
+          inferredType = "storyboards";
+        } else if (
+          videoParamId.toLowerCase().includes("voice") ||
+          videoParamId.toLowerCase().endsWith(".mp3")
+        ) {
+          inferredType = "voiceovers";
+        }
+
+        if (mediaType !== inferredType) {
+          setMediaType(inferredType);
+        }
+
+        localStorage.setItem("mediaType", inferredType);
+        setMediaTypeInitialized(true);
+        setInitialLoadComplete(true);
+      }
+
       const storedUrl = localStorage.getItem("videoUrl");
       if (storedUrl && storedUrl.includes(videoParamId)) {
         setVideoUrl(storedUrl);
@@ -164,16 +233,29 @@ function MainApp() {
     }
   }, [videoParamId]);
 
-  useEffect(() => {
-    if (selectedAsset) {
-      const baseName = selectedAsset.split("/").pop().replace(/\.[^/.]+$/, "");
-      setVideoId(baseName);
-      setVideoUrl(selectedAsset);
-      localStorage.setItem("videoId", baseName);
-      localStorage.setItem("videoUrl", selectedAsset);
+useEffect(() => {
+  if (selectedAsset) {
+    const baseName = selectedAsset.split("/").pop().replace(/\.[^/.]+$/, "");
+    setVideoId(baseName);
+    setVideoUrl(selectedAsset);
+    localStorage.setItem("videoId", baseName);
+    localStorage.setItem("videoUrl", selectedAsset);
+
+    if (videoParamId !== baseName) {
       navigate(`/review/${baseName}`);
     }
-  }, [selectedAsset, navigate]);
+
+    // Sync mediaType based on selected asset extension
+    const ext = selectedAsset.toLowerCase();
+    if (ext.endsWith(".pdf") && mediaType !== "storyboards") {
+      setMediaType("storyboards");
+    } else if (ext.endsWith(".mp3") && mediaType !== "voiceovers") {
+      setMediaType("voiceovers");
+    } else if (ext.endsWith(".mp4") && mediaType !== "videos") {
+      setMediaType("videos");
+    }
+  }
+}, [selectedAsset, navigate, videoParamId]);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -631,6 +713,7 @@ function MainApp() {
                     const extraList = notifyExtraEmails.split(",").map(e => e.trim()).filter(Boolean);
                     const toList = [...notifyEmailInput, ...extraList];
                     if (!toList.length) return;
+                    // Ensure the message field is sent to backend
                     await axios.post(`${process.env.REACT_APP_BACKEND_URL}/notify_team`, {
                       video_id: videoId,
                       reviewer: user?.username || "Reviewer",
