@@ -1,12 +1,18 @@
+def get_instruction(mode):
+    try:
+        with open("silas_instructions.json", "r") as f:
+            data = json.load(f)
+        return data.get(mode, "")
+    except Exception as e:
+        print(f"[❌] Failed to load system instructions for mode '{mode}':", e)
+        return ""
 import threading
-from openai import OpenAI
 import base64
 from dotenv import load_dotenv
 import os
 from pathlib import Path
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
 import time
-openai = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 from flask import Flask, request, jsonify, send_from_directory, send_file, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
@@ -40,6 +46,134 @@ S3_BUCKET = 'naveon-video-storage'
 S3_REGION = 'us-east-1'  # change if your bucket is in a different region
 
 s3_client = boto3.client('s3')
+
+# --- SILAS Video Review Async Endpoint ---
+@app.route('/silas/review_video_async', methods=['POST'])
+def silas_review_video_async():
+    print("[📥] /silas/review_video_async endpoint triggered")
+    import requests
+    import subprocess
+    import tempfile
+    import base64
+    import ffmpeg
+    from PIL import Image
+    from io import BytesIO
+    from moviepy.editor import VideoFileClip
+
+    data = request.json
+    file_url = data.get("file_url")
+    media_type = data.get("media_type")
+    video_id = data.get("video_id")
+
+    if not file_url or not media_type or not video_id:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    def run_async_review():
+        print("🚀 Inside SILAS run_async_review thread")
+        with app.app_context():
+            print(f"[✅] SILAS background thread started for: {video_id}")
+            try:
+                # Download video
+                video_resp = requests.get(file_url)
+                if video_resp.status_code != 200:
+                    print("❌ Failed to download video")
+                    return
+
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_video:
+                    temp_video.write(video_resp.content)
+                    video_path = temp_video.name
+
+                print(f"[📥] Video downloaded and saved to {video_path}")
+
+                # Transcribe with Whisper
+                from openai import OpenAI
+                client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+                print("[🔈] Extracting audio from video...")
+                audio_clip = VideoFileClip(video_path).audio
+                audio_path = video_path.replace(".mp4", ".mp3")
+                audio_clip.write_audiofile(audio_path, codec="mp3")
+
+                with open(audio_path, "rb") as f:
+                    transcript = client.audio.transcriptions.create(model="whisper-1", file=f)
+                full_text = transcript.text
+
+                print(f"[📝] Transcript preview: {full_text[:100]}...")
+
+                # Break into 3s segments
+                segments = []
+                words = full_text.split()
+                chunk_size = int(len(words) / 40) or 1
+                for i in range(0, len(words), chunk_size):
+                    segments.append(" ".join(words[i:i+chunk_size]))
+
+                # Capture frame every 3 seconds
+                duration = VideoFileClip(video_path).duration
+                timestamps = [int(t) for t in range(0, int(duration), 3)]
+
+                print(f"[🎞️] Processing {len(timestamps)} frames at 3s intervals")
+
+                for i, ts in enumerate(timestamps):
+                    try:
+                        frame_path = video_path.replace(".mp4", f"_{ts}.jpg")
+                        (
+                            ffmpeg
+                            .input(video_path, ss=ts)
+                            .output(frame_path, vframes=1)
+                            .run(quiet=True, overwrite_output=True)
+                        )
+
+                        with open(frame_path, "rb") as img_file:
+                            img_b64 = base64.b64encode(img_file.read()).decode("utf-8")
+
+                        vision_prompt = [
+                            {
+                                "type": "text",
+                                "text": f"Please review this video scene (Timestamp: {ts}s). Here is the narration: “{segments[i]}” Provide 1–2 visual improvement suggestions for the scene shown."
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/jpeg;base64,{img_b64}"
+                                }
+                            }
+                        ]
+
+                        response = client.chat.completions.create(
+                            model="gpt-4o",
+                            messages=[
+                                {
+                                    "role": "system",
+                                    "content": get_instruction("video")
+                                },
+                                {
+                                    "role": "user",
+                                    "content": vision_prompt
+                                }
+                            ],
+                            max_tokens=500
+                        )
+
+                        feedback = response.choices[0].message.content.strip()
+                        comment = Comment(
+                            video_id=video_id,
+                            timestamp=str(ts),
+                            comment=feedback + "\n\n-- SILAS (Video Review)",
+                            user="SILAS"
+                        )
+                        db.session.add(comment)
+                        db.session.commit()
+                        print(f"[✅] Saved comment for {ts}s")
+                    except Exception as frame_err:
+                        print(f"❌ Error processing timestamp {ts}: {frame_err}")
+            except Exception as e:
+                import traceback
+                print("[❌] SILAS video review error:", str(e))
+                traceback.print_exc()
+
+    print("✅ Review thread dispatched")
+    threading.Thread(target=run_async_review).start()
+    return jsonify({"status": "SILAS video review started"}), 202
 
 # --- Admin List S3 Files Route ---
 @app.route('/admin/list', methods=['GET'])
@@ -420,6 +554,8 @@ def silas_review():
         return jsonify({"error": "Only PDF review is supported in this endpoint"}), 400
 
     try:
+        from openai import OpenAI
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         # Download PDF
         resp = requests.get(file_url)
         if resp.status_code != 200:
@@ -464,12 +600,12 @@ def silas_review():
                 }
             ]
 
-            response = openai.chat.completions.create(
+            response = client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are SILAS, which stands for Serious Illness Learning AI Service. You are a Healthcare Educator and Professional Videographer specializing in Serious Illness Education. Your primary function is to review and help improve educational media for patients and families dealing with serious illnesses.\n\nYou will be asked to review: PDF storyboards and MP4 videos. Each PDF page typically represents a slide. Provide feedback per slide or scene.\n\nYour goals are:\n• To provide feedback on communication quality, emotional tone, clarity, diversity of images, and educational accuracy.\n\nWhen you are reviewing a storyboard, each page contains:\n• A visual scene or slide (usually an illustration or design)\n• A small text box at the bottom, which contains the narration script (voiceover), not on-screen text\n\nPart of your job is to:\n• Determine if the visual elements effectively support the narration\n• Ensure the imagery is relevant, clear, and emotionally aligned with the script\n• Do not suggest visual improvements based on text readability unless that text is meant to appear onscreen\n\nIn your feedback:\n• Reference the visual in the context of the narration\n• Respond with 2–3 specific, visual improvement ideas. Do not include section headers like 'Suggestions' unless explicitly asked.\n\nIn chat mode, answer questions clearly and reference specific media elements when relevant (e.g., “In Slide 3…” or “At 1:42…”). Be warm and constructive. Do not be overly verbose. If any part of the input is unclear, ask the user for clarification before responding."
+                        "content": get_instruction("pdf")
                     },
                     {
                         "role": "user",
@@ -512,6 +648,8 @@ def silas_chat():
         return jsonify({"error": "Missing message"}), 400
 
     try:
+        from openai import OpenAI
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         chat_image = data.get("chat_image")
         # Load all comments for the video and format them
         all_comments = []
@@ -584,20 +722,12 @@ def silas_chat():
                 }
             }
 
-        chat_response = openai.chat.completions.create(
+        chat_response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
                 {
                     "role": "system",
-                    "content": (
-                        "You are SILAS, a helpful and supportive assistant that reviews educational media. "
-                        "You may receive an uploaded image and/or references to specific page numbers. "
-                        "If the user mentions 'this image', assume they are referring to an uploaded screenshot. "
-                        "If they reference a page number (e.g., 'page 3'), use that page from the storyboard PDF instead. "
-                        "If both an image and a page are present, prioritize based on what the user clearly refers to. "
-                        "Always clarify your reference in your reply (e.g., 'Based on page 2' or 'In the uploaded image'). "
-                        "If the context is unclear, ask the user a clarifying question before answering."
-                    )
+                    "content": get_instruction("chat")
                 },
                 {
                     "role": "user",
@@ -627,6 +757,9 @@ def silas_review_async():
     def run_async_review():
         with app.app_context():
             try:
+                # Use OpenAI client (not openai module directly)
+                from openai import OpenAI
+                client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
                 resp = requests.get(file_url)
                 if resp.status_code == 200:
                     doc = fitz.open(stream=resp.content, filetype="pdf")
@@ -663,7 +796,7 @@ def silas_review_async():
                                 }
                             ]
 
-                            response = openai.chat.completions.create(
+                            response = client.chat.completions.create(
                                 model="gpt-4o",
                                 messages=[
                                     {
@@ -781,3 +914,48 @@ def notify_comment():
     except Exception as e:
         print("[❌] Failed to send comment notification:", e)
         return jsonify({"error": "Failed to notify"}), 500
+
+
+# --- SILAS System Instruction Admin API ---
+
+# Serve the admin instruction editor UI
+@app.route("/admin/instructions-editor")
+def serve_instruction_editor():
+    return send_from_directory(".", "admin_instructions.html")
+@app.route("/admin/instructions", methods=["GET"])
+def get_silas_instruction():
+    mode = request.args.get("mode")
+    if not mode:
+        return jsonify({"error": "Missing mode"}), 400
+
+    try:
+        with open("silas_instructions.json", "r") as f:
+            data = json.load(f)
+        return jsonify({"mode": mode, "content": data.get(mode, "")})
+    except Exception as e:
+        print("[❌] Failed to load instructions:", e)
+        return jsonify({"error": "Unable to load instructions"}), 500
+
+@app.route("/admin/instructions", methods=["POST"])
+def save_silas_instruction():
+    data = request.json
+    mode = data.get("mode")
+    content = data.get("content")
+    if not mode or content is None:
+        return jsonify({"error": "Missing mode or content"}), 400
+
+    try:
+        path = "silas_instructions.json"
+        instructions = {}
+        if os.path.exists(path):
+            with open(path, "r") as f:
+                instructions = json.load(f)
+
+        instructions[mode] = content
+        with open(path, "w") as f:
+            json.dump(instructions, f, indent=2)
+
+        return jsonify({"status": "saved", "mode": mode})
+    except Exception as e:
+        print("[❌] Failed to save instructions:", e)
+        return jsonify({"error": "Unable to save instructions"}), 500

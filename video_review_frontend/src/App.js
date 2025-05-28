@@ -267,7 +267,7 @@ useEffect(() => {
     return <AuthForm onAuthSuccess={setUser} />;
   }
 
-  // Handle SILAS review button click
+  // Handle SILAS review button click (supports PDF and video)
   const handleSilasReview = async () => {
     if (silasReviewing) return; // Prevent duplicate clicks
     setSilasReviewing(true);
@@ -295,8 +295,12 @@ useEffect(() => {
       window.dispatchEvent(event);
     }, 3000);
 
+    const endpoint = selectedAsset.endsWith(".pdf")
+      ? "/silas/review_async"
+      : "/silas/review_video_async";
+
     try {
-      await axios.post(`${process.env.REACT_APP_BACKEND_URL}/silas/review_async`, {
+      await axios.post(`${process.env.REACT_APP_BACKEND_URL}${endpoint}`, {
         file_url: selectedAsset,
         media_type: mediaType,
         video_id: videoId
@@ -312,7 +316,7 @@ useEffect(() => {
         setSilasReviewing(false);
         setSilasProgressPage(null);
         setSilasTotalPages(null);
-      }, 16000); // matches 5x3s polling + 1s buffer
+      }, 16000);
     }
   };
   return (
