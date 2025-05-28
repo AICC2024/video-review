@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
 import time
-from flask import Flask, request, jsonify, send_from_directory, send_file, abort
+from flask import Flask, request, jsonify, send_from_directory, send_file, abort, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from datetime import datetime
@@ -921,7 +921,7 @@ def notify_comment():
 # Serve the admin instruction editor UI
 @app.route("/admin/instructions-editor")
 def serve_instruction_editor():
-    return send_from_directory(".", "admin_instructions.html")
+    return render_template("admin_instructions.html")
 @app.route("/admin/instructions", methods=["GET"])
 def get_silas_instruction():
     mode = request.args.get("mode")
