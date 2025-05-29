@@ -2,6 +2,7 @@ import axios from "axios";
 import React, { useState, useEffect, useRef } from "react";
 import { Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import VideoPlayer from "./components/VideoPlayer";
+import DocumentViewer from "./components/DocumentViewer";
 import CommentForm from "./components/CommentForm";
 import CommentList from "./components/CommentList";
 import AuthForm from "./components/AuthForm";
@@ -22,6 +23,14 @@ function MainApp() {
     const username = localStorage.getItem("username");
     return token ? { token, username } : null;
   });
+  // --- Video ref and current time state for syncing comments to video ---
+  // Transcript state for real-time narration display
+  const [transcript, setTranscript] = useState([]);
+  const videoRef = useRef(null);
+  const [currentTime, setCurrentTime] = useState(0);
+
+  // Comments state for current video
+  const [comments, setComments] = useState([]);
 
   // Track whether mediaType has been initialized based on videoParamId
   const [mediaTypeInitialized, setMediaTypeInitialized] = useState(false);
@@ -129,8 +138,15 @@ function MainApp() {
     if (!videoParamId || selectedAsset) return;
 
     const inferTypeFromId = (id) => {
-      if (id.toLowerCase().includes("storyboard") || id.toLowerCase().endsWith(".pdf")) {
+      const storyboardExtensions = [".pdf", ".html", ".md"];
+      const documentExtensions = [".docx", ".doc", ".txt"];
+      if (
+        id.toLowerCase().includes("storyboard") ||
+        storyboardExtensions.some(ext => id.toLowerCase().endsWith(ext))
+      ) {
         return "storyboards";
+      } else if (documentExtensions.some(ext => id.toLowerCase().endsWith(ext))) {
+        return "documents";
       } else if (id.toLowerCase().includes("voice") || id.toLowerCase().endsWith(".mp3")) {
         return "voiceovers";
       } else {
@@ -142,14 +158,15 @@ function MainApp() {
     setMediaType(inferredType);
     localStorage.setItem("mediaType", inferredType);
 
-    // Attempt to construct an asset path manually if needed
+    // S3 prefix logic for guessed URL
     const prefix = inferredType === "storyboards"
       ? "https://naveon-video-storage.s3.amazonaws.com/storyboards/"
       : inferredType === "voiceovers"
       ? "https://naveon-video-storage.s3.amazonaws.com/voiceovers/"
+      : inferredType === "documents"
+      ? "https://naveon-video-storage.s3.amazonaws.com/documents/"
       : "https://naveon-video-storage.s3.amazonaws.com/videos/";
-
-    const guessedUrl = `${prefix}${videoParamId}.pdf`;
+    const guessedUrl = `${prefix}${videoParamId}`;
     setSelectedAsset(guessedUrl);
     setVideoUrl(guessedUrl);
   }, []);
@@ -166,6 +183,20 @@ function MainApp() {
       }
     };
     fetchPreviousVideoIds();
+  }, [videoId]);
+
+  // Fetch comments for current videoId
+  useEffect(() => {
+    if (!videoId) return;
+    const fetchComments = async () => {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/comments/${videoId}`);
+        setComments(res.data);
+      } catch (error) {
+        console.error("Failed to fetch comments:", error);
+      }
+    };
+    fetchComments();
   }, [videoId]);
 
   useEffect(() => {
@@ -200,11 +231,15 @@ function MainApp() {
 
       if (!mediaTypeInitialized) {
         let inferredType = "videos";
+        const storyboardExtensions = [".pdf", ".html", ".md"];
+        const documentExtensions = [".docx", ".doc", ".txt"];
         if (
           videoParamId.toLowerCase().includes("storyboard") ||
-          videoParamId.toLowerCase().endsWith(".pdf")
+          storyboardExtensions.some(ext => videoParamId.toLowerCase().endsWith(ext))
         ) {
           inferredType = "storyboards";
+        } else if (documentExtensions.some(ext => videoParamId.toLowerCase().endsWith(ext))) {
+          inferredType = "documents";
         } else if (
           videoParamId.toLowerCase().includes("voice") ||
           videoParamId.toLowerCase().endsWith(".mp3")
@@ -247,8 +282,12 @@ useEffect(() => {
 
     // Sync mediaType based on selected asset extension
     const ext = selectedAsset.toLowerCase();
-    if (ext.endsWith(".pdf") && mediaType !== "storyboards") {
+    const storyboardExts = [".pdf", ".html", ".md"];
+    const documentExts = [".docx", ".doc", ".txt"];
+    if (storyboardExts.some(e => ext.endsWith(e)) && mediaType !== "storyboards") {
       setMediaType("storyboards");
+    } else if (documentExts.some(e => ext.endsWith(e)) && mediaType !== "documents") {
+      setMediaType("documents");
     } else if (ext.endsWith(".mp3") && mediaType !== "voiceovers") {
       setMediaType("voiceovers");
     } else if (ext.endsWith(".mp4") && mediaType !== "videos") {
@@ -295,9 +334,12 @@ useEffect(() => {
       window.dispatchEvent(event);
     }, 3000);
 
-    const endpoint = selectedAsset.endsWith(".pdf")
-      ? "/silas/review_async"
-      : "/silas/review_video_async";
+    let endpoint = "/silas/review_video_async";
+    if (selectedAsset.endsWith(".pdf")) {
+      endpoint = "/silas/review_async";
+    } else if (selectedAsset.endsWith(".docx")) {
+      endpoint = "/silas/review";
+    }
 
     try {
       await axios.post(`${process.env.REACT_APP_BACKEND_URL}${endpoint}`, {
@@ -319,6 +361,20 @@ useEffect(() => {
       }, 16000);
     }
   };
+  // Fetch transcript for current videoId
+  useEffect(() => {
+    if (!videoId) return;
+    const fetchTranscript = async () => {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/transcript_on_demand/${videoId}`);
+        setTranscript(res.data);
+      } catch (error) {
+        console.error("Failed to fetch transcript:", error);
+      }
+    };
+    fetchTranscript();
+  }, [videoId]);
+
   return (
     <div style={{ paddingRight: showSilasChat || showPreviousComments ? "360px" : "0", transition: "padding-right 0.2s ease" }}>
       <div style={{ padding: "2rem" }}>
@@ -368,6 +424,7 @@ useEffect(() => {
                     <option value="videos">Videos</option>
                     <option value="storyboards">Storyboards</option>
                     <option value="voiceovers">Voiceovers</option>
+                    <option value="documents">Documents</option>
                   </select>
                 </div>
 
@@ -577,13 +634,94 @@ useEffect(() => {
         </div>
       )}
 
-      {videoUrl.endsWith(".pdf") ? (
-        <PdfRegionCommenter url={videoUrl} key={videoUrl} />
+      {mediaType === "storyboards" ? (
+        <>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem" }}>
+            <div style={{ flex: 3 }}>
+              <PdfRegionCommenter url={videoUrl} key={videoUrl} />
+            </div>
+            <div style={{
+              flex: 1,
+              alignSelf: "stretch",
+              overflowY: "auto",
+              padding: "1rem",
+              background: "#f9f9f9",
+              border: "1px solid #ddd",
+              borderRadius: "6px",
+              minWidth: "300px",
+              display: "flex",
+              flexDirection: "column"
+            }}>
+              <h2 style={{ marginTop: 0, fontSize: "1.2rem", fontWeight: "600", color: "#333" }}>
+                Current Comments
+              </h2>
+              <CommentList videoId={videoId} currentPage={pdfCurrentPage} mediaType={mediaType} />
+            </div>
+          </div>
+          <CommentForm videoId={videoId} snapshot={pdfSnapshot} page={pdfCurrentPage} />
+        </>
       ) : (
-        <VideoPlayer videoUrl={videoUrl} key={videoUrl} />
+        mediaType === "documents" ? (
+          <>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem" }}>
+              <div style={{ flex: 3 }}>
+                <DocumentViewer url={videoUrl} />
+              </div>
+              <div style={{
+                flex: 1,
+                alignSelf: "stretch",
+                overflowY: "auto",
+                padding: "1rem",
+                background: "#f9f9f9",
+                border: "1px solid #ddd",
+                borderRadius: "6px",
+                minWidth: "300px",
+                display: "flex",
+                flexDirection: "column"
+              }}>
+                <h2 style={{ marginTop: 0, fontSize: "1.2rem", fontWeight: "600", color: "#333" }}>
+                  Current Comments
+                </h2>
+                <CommentList videoId={videoId} />
+              </div>
+            </div>
+            <CommentForm videoId={videoId} />
+          </>
+        ) : (
+          <>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem" }}>
+              <div style={{ flex: 3 }}>
+                <VideoPlayer
+                  ref={videoRef}
+                  videoUrl={videoUrl}
+                  key={videoUrl}
+                  comments={comments}
+                  onTimeUpdate={setCurrentTime}
+                  transcript={transcript}
+                />
+              </div>
+              <div style={{
+                flex: 1,
+                alignSelf: "stretch",
+                overflowY: "auto",
+                padding: "1rem",
+                background: "#f9f9f9",
+                border: "1px solid #ddd",
+                borderRadius: "6px",
+                minWidth: "300px",
+                display: "flex",
+                flexDirection: "column"
+              }}>
+                <h2 style={{ marginTop: 0, fontSize: "1.2rem", fontWeight: "600", color: "#333" }}>
+                  Current Comments
+                </h2>
+                <CommentList videoId={videoId} currentTime={currentTime} mediaType={mediaType} />
+              </div>
+            </div>
+            <CommentForm videoId={videoId} snapshot={pdfSnapshot} page={pdfCurrentPage} />
+          </>
+        )
       )}
-      <CommentForm videoId={videoId} snapshot={pdfSnapshot} page={pdfCurrentPage} />
-      <CommentList videoId={videoId} />
         {showSilasChat && (
           <SilasChatPanel
             fileUrl={selectedAsset}

@@ -10,8 +10,40 @@ const TEAM_EMAILS = [
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
 
-const CommentList = ({ videoId }) => {
+const CommentList = ({ videoId, currentTime, mediaType }) => {
+  // Highlight and scroll to active comment during video playback
+  const commentRefs = useRef({});
+  const [activeCommentId, setActiveCommentId] = useState(null);
   const [comments, setComments] = useState([]);
+  // Find and track the active comment based on currentTime
+  useEffect(() => {
+    if (!Array.isArray(comments)) return;
+    const match = comments.find(c =>
+      Math.abs(Number(c.timestamp) - currentTime) <= 1
+    );
+    if (match?.id !== activeCommentId) {
+      setActiveCommentId(match?.id || null);
+    }
+  }, [currentTime, comments]);
+
+  // Scroll to the active comment when it changes or currentTime updates, with logging and slight delay
+  useEffect(() => {
+    const activeRef = commentRefs.current[activeCommentId];
+    if (
+      activeRef &&
+      typeof activeRef === "object" &&
+      activeRef.current &&
+      typeof activeRef.current.scrollIntoView === "function"
+    ) {
+      setTimeout(() => {
+        try {
+          activeRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        } catch (err) {
+          console.warn("Scroll failed:", err);
+        }
+      }, 100);
+    }
+  }, [activeCommentId, currentTime]);
   const [editingId, setEditingId] = useState(null);
   const [editedTextMap, setEditedTextMap] = useState({});
   const [addToId, setAddToId] = useState(null);
@@ -225,307 +257,327 @@ const CommentList = ({ videoId }) => {
   if (!videoId) return <p style={{ textAlign: "center" }}>Please upload a video to begin reviewing.</p>;
 
   return (
-    <div style={{ background: "#f9f9f9", padding: "1rem", borderRadius: "8px", boxShadow: "0 1px 4px rgba(0,0,0,0.1)" }}>
-      <h2 style={{ marginBottom: "1rem", fontSize: "1.5rem", fontWeight: "600", color: "#333" }}>
-        Comments
-      </h2>
-      {isPolling && (
-        <div style={{ marginBottom: "1rem", color: "#f9a825", fontWeight: 500 }}>
-          🟡 Live
-        </div>
-      )}
-      <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-        {comments.map((c) => {
-          if (!c || !c.timestamp || !c.comment || typeof c.id !== "number") return null;
-          const commentId = c.id;
-          const reactions = typeof c.reactions === "string" ? JSON.parse(c.reactions) : c.reactions || {};
-          console.log("Parsed reactions:", reactions);
-          return (
-            <li
-              key={commentId}
-              style={{
-                background: "#fff",
-                border: "1px solid #ddd",
-                borderRadius: "6px",
-                padding: "0.75rem",
-                marginBottom: "0.75rem"
-              }}
-            >
-              <strong
-                style={{ display: "block", color: "#555", marginBottom: "0.25rem" }}
+    <div
+      style={{
+        width: "100%",
+        maxHeight: "600px",
+        overflowY: "auto",
+        background: "#f9f9f9",
+        padding: "1rem",
+        borderRadius: "8px",
+        boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
+        boxSizing: "border-box"
+      }}
+    >
+        {isPolling && (
+          <div style={{ marginBottom: "1rem", color: "#f9a825", fontWeight: 500 }}>
+            🟡 Live
+          </div>
+        )}
+        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+          {comments.map((c) => {
+            if (!c || !c.comment || typeof c.id !== "number") return null;
+            const commentId = c.id;
+            const reactions = typeof c.reactions === "string" ? JSON.parse(c.reactions) : c.reactions || {};
+            // Highlight and ref logic
+            if (!commentRefs.current[c.id]) {
+              commentRefs.current[c.id] = React.createRef();
+            }
+            const commentRef = commentRefs.current[c.id];
+            const isActive = c.id === activeCommentId;
+            return (
+              <li
+                key={commentId}
+                ref={commentRef}
+                style={{
+                  background: isActive ? "#e3f2fd" : "#fff",
+                  border: "1px solid #ddd",
+                  borderRadius: "6px",
+                  padding: "0.75rem",
+                  marginBottom: "0.75rem",
+                  width: "100%",
+                  boxSizing: "border-box"
+                }}
               >
-                {c.page && parseInt(c.page) > 0 ? (
-                  <>📄 Page {c.page}</>
-                ) : (
-                  (() => {
-                    const minutes = Math.floor(c.timestamp / 60);
-                    const seconds = Math.floor(c.timestamp % 60).toString().padStart(2, '0');
-                    return `${minutes}:${seconds}`;
-                  })()
+                {(mediaType === "videos" || mediaType === "voiceovers") && (
+                  <strong style={{ display: "block", color: "#555", marginBottom: "0.25rem" }}>
+                    {(() => {
+                      const t = parseFloat(c.timestamp);
+                      if (!isNaN(t)) {
+                        const minutes = Math.floor(t / 60);
+                        const seconds = Math.floor(t % 60).toString().padStart(2, '0');
+                        return `${minutes}:${seconds}`;
+                      }
+                      return "0:00";
+                    })()}
+                  </strong>
                 )}
-              </strong>
-              {editingId === commentId ? (
-                <div>
-                  <textarea
-                    value={editedTextMap[commentId] || ""}
-                    onChange={(e) => handleTextChange(commentId, e.target.value)}
-                    rows={2}
-                    cols={50}
-                    style={{
-                      width: "100%",
-                      borderRadius: "4px",
-                      border: "1px solid #ccc",
-                      padding: "0.5rem",
-                      fontSize: "0.95rem",
-                      marginBottom: "0.5rem"
-                    }}
-                  />
-                  <div style={{ display: "flex", gap: "0.5rem" }}>
-                    <button style={buttonStyle} onClick={() => saveEdit(commentId)}>Save</button>
-                    <button style={cancelButtonStyle} onClick={cancelEditing}>Cancel</button>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ color: "#333", whiteSpace: "pre-wrap", flex: 1 }}>
-                    <div style={{ marginBottom: "0.25rem" }}>
-                      {c.comment.split("\n\n--")[0]} <span style={{ color: "#888" }}>({c.user})</span>
+                {mediaType === "storyboards" && c.page && parseInt(c.page) > 0 && (
+                  <strong style={{ display: "block", color: "#555", marginBottom: "0.25rem" }}>
+                    📄 Page {c.page}
+                  </strong>
+                )}
+                {editingId === commentId ? (
+                  <div>
+                    <textarea
+                      value={editedTextMap[commentId] || ""}
+                      onChange={(e) => handleTextChange(commentId, e.target.value)}
+                      rows={2}
+                      cols={50}
+                      style={{
+                        width: "100%",
+                        borderRadius: "4px",
+                        border: "1px solid #ccc",
+                        padding: "0.5rem",
+                        fontSize: "0.95rem",
+                        marginBottom: "0.5rem"
+                      }}
+                    />
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <button style={buttonStyle} onClick={() => saveEdit(commentId)}>Save</button>
+                      <button style={cancelButtonStyle} onClick={cancelEditing}>Cancel</button>
                     </div>
-                    {c.comment.includes("\n\n--") && (
-                      <div style={{ fontSize: "0.9rem", marginTop: "0.25rem", color: "#444" }}>
-                        {c.comment
-                          .split("\n\n--")
-                          .slice(1)
-                          .map((part, i) => {
-                            const [metaLine, ...textParts] = part.trim().split("\n");
+                  </div>
+                ) : (
+                  <div>
+                    <div>
+                      <div style={{ color: "#333", whiteSpace: "pre-wrap", marginBottom: "0.5rem" }}>
+                        <div style={{ marginBottom: "0.25rem" }}>
+                          {c.comment.split("\n\n--")[0]} <span style={{ color: "#888" }}>({c.user})</span>
+                        </div>
+                        {c.comment.includes("\n\n--") && (
+                          <div style={{ fontSize: "0.9rem", color: "#444" }}>
+                            {c.comment
+                              .split("\n\n--")
+                              .slice(1)
+                              .map((part, i) => {
+                                const [metaLine, ...textParts] = part.trim().split("\n");
+                                return (
+                                  <div key={i} style={{ marginTop: "0.5rem" }}>
+                                    <div style={{ fontSize: "0.95rem" }}>
+                                      {textParts.join("\n")} <span style={{ color: "#666" }}>({metaLine})</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        )}
+                        {c.image && (
+                          <div style={{ marginTop: "0.5rem" }}>
+                            <img
+                              src={c.image}
+                              alt="Annotation"
+                              style={{
+                                maxWidth: "100%",
+                                maxHeight: "200px",
+                                border: "1px solid #ccc",
+                                borderRadius: "4px"
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.5rem" }}>
+                        <button
+                          style={{ ...buttonStyle, backgroundColor: "#4caf50" }}
+                          onClick={() => {
+                            setAddToId(commentId);
+                            setAdditionalText("");
+                          }}
+                        >
+                          Add
+                        </button>
+                        <button style={buttonStyle} onClick={() => startEditing(c)}>Edit</button>
+                        <button style={deleteButtonStyle} onClick={() => deleteComment(c.id)}>Delete</button>
+                        <button
+                          style={{ ...buttonStyle, backgroundColor: "#ff9800" }}
+                          onClick={() => {
+                            setNotifyTargetComment(c);
+                            setNotifyEmailInput("");
+                            setIsNotifyModalOpen(true);
+                          }}
+                        >
+                          @Notify
+                        </button>
+                        <div style={{ display: "flex", gap: "0.25rem", fontSize: "1.2rem" }}>
+                          {["👍", "❤️", "👎"].map((icon) => {
+                            const users = Array.isArray(reactions[icon]) ? reactions[icon] : [];
+                            const count = users.length;
                             return (
-                              <div key={i} style={{ marginTop: "0.5rem" }}>
-                                <div style={{ fontSize: "0.95rem", color: "#444", marginTop: "0.25rem" }}>
-                                  {textParts.join("\n")} <span style={{ color: "#666" }}>({metaLine})</span>
-                                </div>
-                              </div>
+                              <button
+                                key={`${c.id}-${icon}`}
+                                onClick={() => typeof c.id === "number" && addReaction(c.id, icon)}
+                                title={users.length > 0 ? users.join(", ") : ""}
+                                style={{
+                                  background: "none",
+                                  border: "none",
+                                  cursor: "pointer",
+                                  fontSize: "1.2rem"
+                                }}
+                              >
+                                {icon} {count > 0 ? count : ""}
+                              </button>
                             );
                           })}
+                        </div>
                       </div>
-                    )}
-                    {c.image && (
-                      <div style={{ marginTop: "0.5rem" }}>
-                        <img
-                          src={c.image}
-                          alt="Annotation"
-                          style={{ maxWidth: "100%", maxHeight: "200px", border: "1px solid #ccc", borderRadius: "4px" }}
-                        />
-                      </div>
-                    )}
+                    </div>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginRight: "1rem" }}>
+                )}
+                {addToId === commentId && (
+                  <div style={{ marginTop: "0.5rem" }}>
+                    <textarea
+                      value={additionalText}
+                      onChange={(e) => setAdditionalText(e.target.value)}
+                      rows={2}
+                      cols={50}
+                      style={{
+                        width: "100%",
+                        borderRadius: "4px",
+                        border: "1px solid #ccc",
+                        padding: "0.5rem",
+                        fontSize: "0.95rem",
+                        marginBottom: "0.5rem"
+                      }}
+                    />
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
                       <button
-                        style={{
-                          ...buttonStyle,
-                          backgroundColor: "#4caf50"
-                        }}
-                        onClick={() => {
-                          setAddToId(commentId);
+                        style={buttonStyle}
+                        onClick={async () => {
+                          const existing = comments.find(c => c.id === commentId);
+                          const username = localStorage.getItem("username");
+                          const now = new Date();
+                          const timestamp = now.toLocaleString();
+                          const formattedAddition = `\n\n-- ${username} (${timestamp})\n${additionalText}`;
+                          const updatedText = `${existing.comment}${formattedAddition}`;
+                          await saveEdit(commentId, updatedText);
+                          setAddToId(null);
                           setAdditionalText("");
                         }}
                       >
-                        Add
+                        Save Addition
                       </button>
-                      <button style={buttonStyle} onClick={() => startEditing(c)}>Edit</button>
-                      <button style={deleteButtonStyle} onClick={() => deleteComment(c.id)}>Delete</button>
-                      <button
-                        style={{
-                          ...buttonStyle,
-                          backgroundColor: "#ff9800"
-                        }}
-                        onClick={() => {
-                          setNotifyTargetComment(c);
-                          setNotifyEmailInput("");
-                          setIsNotifyModalOpen(true);
-                        }}
-                      >
-                        @Notify
+                      <button style={cancelButtonStyle} onClick={() => setAddToId(null)}>
+                        Cancel
                       </button>
                     </div>
-                    <div style={{ display: "flex", gap: "0.25rem", fontSize: "1.2rem", minWidth: "70px", justifyContent: "flex-end" }}>
-                      {["👍", "❤️", "👎"].map((icon) => {
-                        const users = Array.isArray(reactions[icon]) ? reactions[icon] : [];
-                        const count = users.length;
-                        return (
-                          <button
-                            key={`${c.id}-${icon}`}
-                            onClick={() => typeof c.id === "number" && addReaction(c.id, icon)}
-                            title={users.length > 0 ? users.join(", ") : ""}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              cursor: "pointer",
-                              fontSize: "1.2rem"
-                            }}
-                          >
-                            {icon} {count > 0 ? count : ""}
-                          </button>
-                        );
-                      })}
-                    </div>
                   </div>
-                </div>
-              )}
-              {addToId === commentId && (
-                <div style={{ marginTop: "0.5rem" }}>
-                  <textarea
-                    value={additionalText}
-                    onChange={(e) => setAdditionalText(e.target.value)}
-                    rows={2}
-                    cols={50}
-                    style={{
-                      width: "100%",
-                      borderRadius: "4px",
-                      border: "1px solid #ccc",
-                      padding: "0.5rem",
-                      fontSize: "0.95rem",
-                      marginBottom: "0.5rem"
-                    }}
-                  />
-                  <div style={{ display: "flex", gap: "0.5rem" }}>
-                    <button
-                      style={buttonStyle}
-                      onClick={async () => {
-                        const existing = comments.find(c => c.id === commentId);
-                        const username = localStorage.getItem("username");
-                        const now = new Date();
-                        const timestamp = now.toLocaleString();
-                        const formattedAddition = `\n\n-- ${username} (${timestamp})\n${additionalText}`;
-                        const updatedText = `${existing.comment}${formattedAddition}`;
-                        await saveEdit(commentId, updatedText);
-                        setAddToId(null);
-                        setAdditionalText("");
-                      }}
-                    >
-                      Save Addition
-                    </button>
-                    <button style={cancelButtonStyle} onClick={() => setAddToId(null)}>
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+                )}
+              </li>
+            );
+          })}
+        </ul>
 
-      {/* Notify Modal */}
-      {isNotifyModalOpen && notifyTargetComment && (
-        <div style={{
-          position: "fixed",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          backgroundColor: "#fff",
-          border: "1px solid #ccc",
-          borderRadius: "8px",
-          padding: "1.5rem",
-          zIndex: 1000,
-          boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-          width: "400px"
-        }}>
-          <h3 style={{ marginTop: 0 }}>Notify Teammates</h3>
-          <p style={{ marginBottom: "0.5rem" }}>Comment:</p>
-          <p style={{ fontStyle: "italic", marginBottom: "1rem" }}>
-            {notifyTargetComment.comment}
-          </p>
-          <input
-            type="text"
-            placeholder="Enter email addresses, comma separated"
-            value={notifyEmailInput}
-            onChange={(e) => setNotifyEmailInput(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "0.5rem",
-              fontSize: "0.95rem",
-              marginBottom: "1rem",
-              border: "1px solid #ccc",
-              borderRadius: "4px"
-            }}
-          />
-          {/* Email suggestions dropdown */}
-          {notifyEmailInput && (
-            <div style={{
-              backgroundColor: "#f1f1f1",
-              border: "1px solid #ccc",
-              borderRadius: "4px",
-              marginTop: "-0.5rem",
-              marginBottom: "0.75rem",
-              padding: "0.25rem 0.5rem",
-              fontSize: "0.9rem"
-            }}>
-              {TEAM_EMAILS.filter(e => e.includes(notifyEmailInput.toLowerCase())).map(email => (
-                <div
-                  key={email}
-                  style={{ padding: "0.25rem", cursor: "pointer" }}
-                  onClick={() => setNotifyEmailInput(email)}
-                >
-                  {email}
-                </div>
-              ))}
+        {/* Notify Modal */}
+        {isNotifyModalOpen && notifyTargetComment && (
+          <div style={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            backgroundColor: "#fff",
+            border: "1px solid #ccc",
+            borderRadius: "8px",
+            padding: "1.5rem",
+            zIndex: 1000,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+            width: "400px"
+          }}>
+            <h3 style={{ marginTop: 0 }}>Notify Teammates</h3>
+            <p style={{ marginBottom: "0.5rem" }}>Comment:</p>
+            <p style={{ fontStyle: "italic", marginBottom: "1rem" }}>
+              {notifyTargetComment.comment}
+            </p>
+            <input
+              type="text"
+              placeholder="Enter email addresses, comma separated"
+              value={notifyEmailInput}
+              onChange={(e) => setNotifyEmailInput(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                fontSize: "0.95rem",
+                marginBottom: "1rem",
+                border: "1px solid #ccc",
+                borderRadius: "4px"
+              }}
+            />
+            {/* Email suggestions dropdown */}
+            {notifyEmailInput && (
+              <div style={{
+                backgroundColor: "#f1f1f1",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+                marginTop: "-0.5rem",
+                marginBottom: "0.75rem",
+                padding: "0.25rem 0.5rem",
+                fontSize: "0.9rem"
+              }}>
+                {TEAM_EMAILS.filter(e => e.includes(notifyEmailInput.toLowerCase())).map(email => (
+                  <div
+                    key={email}
+                    style={{ padding: "0.25rem", cursor: "pointer" }}
+                    onClick={() => setNotifyEmailInput(email)}
+                  >
+                    {email}
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
+              <button
+                style={cancelButtonStyle}
+                onClick={() => {
+                  setIsNotifyModalOpen(false);
+                  setNotifyEmailInput("");
+                  setNotifyTargetComment(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                style={buttonStyle}
+                onClick={async () => {
+                  const toList = notifyEmailInput.split(",").map(e => e.trim()).filter(Boolean);
+                  if (!toList.length) return;
+                  const asset_url = `${window.location.origin}/review/${videoId}`;
+                  const username = localStorage.getItem("username");
+                  await axios.post(`${BACKEND_URL}/notify_comment`, {
+                    video_id: videoId,
+                    page: notifyTargetComment.page,
+                    comment_text: notifyTargetComment.comment,
+                    reviewer: username,
+                    to: toList,
+                    asset_url
+                  });
+                  setToastMessage("✅ Comment notification sent.");
+                  setTimeout(() => setToastMessage(""), 4000);
+                  setIsNotifyModalOpen(false);
+                  setNotifyEmailInput("");
+                  setNotifyTargetComment(null);
+                }}
+              >
+                Send
+              </button>
             </div>
-          )}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
-            <button
-              style={cancelButtonStyle}
-              onClick={() => {
-                setIsNotifyModalOpen(false);
-                setNotifyEmailInput("");
-                setNotifyTargetComment(null);
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              style={buttonStyle}
-              onClick={async () => {
-                const toList = notifyEmailInput.split(",").map(e => e.trim()).filter(Boolean);
-                if (!toList.length) return;
-                const asset_url = `${window.location.origin}/review/${videoId}`;
-                const username = localStorage.getItem("username");
-                await axios.post(`${BACKEND_URL}/notify_comment`, {
-                  video_id: videoId,
-                  page: notifyTargetComment.page,
-                  comment_text: notifyTargetComment.comment,
-                  reviewer: username,
-                  to: toList,
-                  asset_url
-                });
-                setToastMessage("✅ Comment notification sent.");
-                setTimeout(() => setToastMessage(""), 4000);
-                setIsNotifyModalOpen(false);
-                setNotifyEmailInput("");
-                setNotifyTargetComment(null);
-              }}
-            >
-              Send
-            </button>
           </div>
-        </div>
-      )}
-      {/* Toast message */}
-      {toastMessage && (
-        <div style={{
-          position: "fixed",
-          bottom: "1rem",
-          right: "1rem",
-          backgroundColor: "#333",
-          color: "#fff",
-          padding: "0.75rem 1rem",
-          borderRadius: "6px",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-          zIndex: 9999
-        }}>
-          {toastMessage}
-        </div>
-      )}
+        )}
+        {/* Toast message */}
+        {toastMessage && (
+          <div style={{
+            position: "fixed",
+            bottom: "1rem",
+            right: "1rem",
+            backgroundColor: "#333",
+            color: "#fff",
+            padding: "0.75rem 1rem",
+            borderRadius: "6px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+            zIndex: 9999
+          }}>
+            {toastMessage}
+          </div>
+        )}
     </div>
   );
 };

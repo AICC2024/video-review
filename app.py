@@ -31,6 +31,63 @@ app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # Allow uploads up to 500MB
 
+# --- Transcript Route ---
+@app.route("/transcript/<video_id>", methods=["GET"])
+def get_transcript_for_video(video_id):
+    try:
+        filename = f"transcripts/{video_id}.json"
+        if os.path.exists(filename):
+            with open(filename, "r") as f:
+                data = json.load(f)
+            return jsonify(data)
+        else:
+            return jsonify({"error": "Transcript not found"}), 404
+    except Exception as e:
+        print("[❌] Error reading transcript:", e)
+        return jsonify({"error": "Failed to read transcript"}), 500
+
+# --- On Demand Transcript Fallback Route ---
+@app.route("/transcript_on_demand/<video_id>", methods=["GET"])
+def transcribe_video_on_demand(video_id):
+    import tempfile
+    from moviepy.editor import VideoFileClip
+    from openai import OpenAI
+    try:
+        s3_key = f"videos/{video_id}.mp4"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_video:
+            s3_client.download_fileobj(S3_BUCKET, s3_key, temp_video)
+            video_path = temp_video.name
+
+        audio_clip = VideoFileClip(video_path).audio
+        audio_path = video_path.replace(".mp4", ".mp3")
+        audio_clip.write_audiofile(audio_path, codec="mp3")
+
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        with open(audio_path, "rb") as f:
+            transcript = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=f,
+                response_format="verbose_json"
+            )
+
+        results = []
+        for segment in transcript.segments:
+            results.append({
+                "start": segment.start,
+                "end": segment.end,
+                "text": segment.text.strip()
+            })
+
+        return jsonify(results)
+    except Exception as e:
+        print("[❌] Error generating on-demand transcript:", e)
+        return jsonify({"error": "Failed to transcribe video"}), 500
+
+CORS(app, resources={r"/*": {"origins": "*"}})
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # Allow uploads up to 500MB
+CORS(app, resources={r"/*": {"origins": "*"}})
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # Allow uploads up to 500MB
+
 # PostgreSQL connection string placeholder (update before deployment)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get("DATABASE_URL", "postgresql://paulminton@localhost:5432/video_review")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -536,8 +593,8 @@ def list_media_by_type():
 @app.route('/silas/review', methods=['POST'])
 def silas_review():
     """
-    Accepts a PDF URL, downloads it, extracts each page's text, sends each page to SILAS individually,
-    and stores each returned comment with the correct page number.
+    Accepts a PDF or DOCX URL, downloads it, extracts the content, sends to SILAS for review,
+    and stores returned comments.
     """
     import requests
     import fitz  # PyMuPDF
@@ -548,6 +605,49 @@ def silas_review():
 
     if not file_url or not media_type or not video_id:
         return jsonify({"error": "Missing required fields"}), 400
+
+    # DOCX handling (must come before PDF check)
+    if file_url.lower().endswith(".docx"):
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+            s3_key = f"documents/{video_id}.docx"
+            temp_path = f"/tmp/{video_id}.docx"
+            s3_client.download_file(S3_BUCKET, s3_key, temp_path)
+
+            doc = Document(temp_path)
+            paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+            doc_text = "\n\n".join(paragraphs)
+
+            response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": get_instruction("document")
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Here is the content of the document titled {video_id}:\n\n{doc_text}\n\nPlease provide a detailed review with feedback."
+                    }
+                ],
+                max_tokens=1000
+            )
+
+            reply = response.choices[0].message.content.strip()
+            comment = Comment(
+                video_id=video_id,
+                timestamp="0",
+                comment=reply + "\n\n-- SILAS (Document Review)",
+                user="SILAS"
+            )
+            db.session.add(comment)
+            db.session.commit()
+            return jsonify({"status": "SILAS docx review completed", "comments_added": 1})
+        except Exception as docx_err:
+            print("[❌] DOCX SILAS review error:", docx_err)
+            return jsonify({"error": "DOCX review failed"}), 500
 
     # Only handle PDFs for now (storyboards)
     if not file_url.lower().endswith(".pdf"):
@@ -660,12 +760,25 @@ def silas_chat():
             comment_context = "\n".join([
                 f"{c.timestamp or '0:00'} - {c.user}: {c.comment}" for c in all_comments
             ])
-            # Load all SlidePage entries for this video_id
-            all_pages = SlidePage.query.filter_by(video_id=video_id).order_by(SlidePage.page_number.asc()).all()
-            if all_pages:
-                page_context = "\n\n".join([
-                    f"Page {p.page_number}:\n{p.content.strip()}" for p in all_pages
-                ])
+            # Load DOCX or storyboard content
+            if file_url and file_url.lower().endswith(".docx"):
+                try:
+                    s3_key = f"documents/{video_id}.docx"
+                    temp_path = f"/tmp/{video_id}.docx"
+                    s3_client.download_file(S3_BUCKET, s3_key, temp_path)
+
+                    doc = Document(temp_path)
+                    paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+                    page_context = "\n\n".join(paragraphs)
+                except Exception as e:
+                    print("[⚠️] Failed to extract DOCX for chat:", e)
+                    page_context = ""
+            else:
+                all_pages = SlidePage.query.filter_by(video_id=video_id).order_by(SlidePage.page_number.asc()).all()
+                if all_pages:
+                    page_context = "\n\n".join([
+                        f"Page {p.page_number}:\n{p.content.strip()}" for p in all_pages
+                    ])
 
         if chat_image:
             prompt = (
@@ -959,3 +1072,16 @@ def save_silas_instruction():
     except Exception as e:
         print("[❌] Failed to save instructions:", e)
         return jsonify({"error": "Unable to save instructions"}), 500
+@app.route("/docx_text/<video_id>", methods=["GET"])
+def extract_docx_text(video_id):
+    try:
+        s3_key = f"documents/{video_id}.docx"
+        temp_path = f"/tmp/{video_id}.docx"
+        s3_client.download_file(S3_BUCKET, s3_key, temp_path)
+
+        doc = Document(temp_path)
+        paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+        return jsonify({ "content": "\n\n".join(paragraphs) })
+    except Exception as e:
+        print("[❌] Failed to extract DOCX text:", e)
+        return jsonify({ "error": str(e) }), 500

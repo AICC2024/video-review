@@ -68,6 +68,7 @@ const AdminUpload = () => {
             <option value="videos">Video</option>
             <option value="storyboards">Storyboard</option>
             <option value="voiceovers">Voiceover</option>
+            <option value="documents">Documents</option>
           </select>
         </div>
 
