@@ -1,11 +1,4 @@
-def get_instruction(mode):
-    try:
-        with open("silas_instructions.json", "r") as f:
-            data = json.load(f)
-        return data.get(mode, "")
-    except Exception as e:
-        print(f"[❌] Failed to load system instructions for mode '{mode}':", e)
-        return ""
+
 import threading
 import base64
 from dotenv import load_dotenv
@@ -30,6 +23,22 @@ from botocore.exceptions import BotoCoreError, ClientError
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # Allow uploads up to 500MB
+
+# --- SILAS System Instruction Admin API ---
+@app.route("/admin/instructions", methods=["GET"])
+def get_silas_instruction():
+    mode = request.args.get("mode")
+    if not mode:
+        return jsonify({"error": "Missing mode"}), 400
+
+    try:
+        with open("silas_instructions.json", "r") as f:
+            data = json.load(f)
+        return jsonify({"mode": mode, "content": data.get(mode, "")})
+    except Exception as e:
+        print("[❌] Failed to load instructions:", e)
+        return jsonify({"error": "Unable to load instructions"}), 500
+
 
 # --- Transcript Route ---
 @app.route("/transcript/<video_id>", methods=["GET"])
@@ -1029,25 +1038,10 @@ def notify_comment():
         return jsonify({"error": "Failed to notify"}), 500
 
 
-# --- SILAS System Instruction Admin API ---
-
 # Serve the admin instruction editor UI
 @app.route("/admin/instructions-editor")
 def serve_instruction_editor():
     return render_template("admin_instructions.html")
-@app.route("/admin/instructions", methods=["GET"])
-def get_silas_instruction():
-    mode = request.args.get("mode")
-    if not mode:
-        return jsonify({"error": "Missing mode"}), 400
-
-    try:
-        with open("silas_instructions.json", "r") as f:
-            data = json.load(f)
-        return jsonify({"mode": mode, "content": data.get(mode, "")})
-    except Exception as e:
-        print("[❌] Failed to load instructions:", e)
-        return jsonify({"error": "Unable to load instructions"}), 500
 
 @app.route("/admin/instructions", methods=["POST"])
 def save_silas_instruction():
