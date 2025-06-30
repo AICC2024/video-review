@@ -1,5 +1,3 @@
-
-
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
@@ -14,7 +12,7 @@ const InstructionEditor = () => {
 
   const fetchInstructions = async () => {
     try {
-      const response = await axios.get(`/admin/instructions?mode=${mode}`);
+      const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/admin/instructions?mode=${mode}`);
       setInstructions(response.data.content || '');
       setStatus('');
     } catch (error) {
@@ -25,7 +23,7 @@ const InstructionEditor = () => {
 
   const handleSave = async () => {
     try {
-      await axios.post('/admin/instructions', { mode, instructions });
+      await axios.post(`${process.env.REACT_APP_BACKEND_URL}/admin/instructions`, { mode, instructions });
       setStatus('✅ Instructions saved successfully.');
     } catch (error) {
       console.error('Error saving instructions:', error);
