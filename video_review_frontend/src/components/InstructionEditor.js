@@ -15,7 +15,7 @@ const InstructionEditor = () => {
   const fetchInstructions = async () => {
     try {
       const response = await axios.get(`/admin/instructions?mode=${mode}`);
-      setInstructions(response.data.instructions || '');
+      setInstructions(response.data.content || '');
       setStatus('');
     } catch (error) {
       console.error('Failed to load instructions:', error);
