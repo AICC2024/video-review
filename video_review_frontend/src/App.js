@@ -12,6 +12,7 @@ import MediaSelector from "./components/MediaSelector";
 import PdfRegionCommenter from "./components/PdfRegionCommenter";
 import SilasChatPanel from "./components/SilasChatPanel";
 import PreviousCommentsPanel from "./components/PreviousCommentsPanel";
+import InstructionEditor from "./components/InstructionEditor";
 
 function MainApp() {
   const { videoParamId } = useParams();
@@ -899,6 +900,7 @@ function App() {
           </div>
         }
       />
+      <Route path="/admin/instructions-editor" element={<InstructionEditor />} />
     </Routes>
   );
 }
