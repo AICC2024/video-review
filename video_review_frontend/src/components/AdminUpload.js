@@ -60,6 +60,11 @@ const AdminUpload = () => {
 
   return (
     <div style={{ maxWidth: "600px", margin: "2rem auto", padding: "2rem", border: "1px solid #ccc", borderRadius: "6px", background: "#fafafa" }}>
+      <div style={{ marginBottom: "1rem" }}>
+        <a href="/admin/instructions-editor" target="_blank" rel="noopener noreferrer" style={{ fontWeight: "bold", color: "#0066cc" }}>
+          ✏️ Edit SILAS Instructions
+        </a>
+      </div>
       <h2>Admin Upload</h2>
       <form onSubmit={handleUpload}>
         <div style={{ marginBottom: "1rem" }}>
