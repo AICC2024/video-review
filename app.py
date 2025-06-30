@@ -24,20 +24,6 @@ app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # Allow uploads up to 500MB
 
-# --- SILAS System Instruction Admin API ---
-@app.route("/admin/instructions", methods=["GET"])
-def get_silas_instruction():
-    mode = request.args.get("mode")
-    if not mode:
-        return jsonify({"error": "Missing mode"}), 400
-
-    try:
-        with open("silas_instructions.json", "r") as f:
-            data = json.load(f)
-        return jsonify({"mode": mode, "content": data.get(mode, "")})
-    except Exception as e:
-        print("[❌] Failed to load instructions:", e)
-        return jsonify({"error": "Unable to load instructions"}), 500
 
 
 # --- Transcript Route ---
@@ -91,11 +77,6 @@ def transcribe_video_on_demand(video_id):
     except Exception as e:
         print("[❌] Error generating on-demand transcript:", e)
         return jsonify({"error": "Failed to transcribe video"}), 500
-
-CORS(app, resources={r"/*": {"origins": "*"}})
-app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # Allow uploads up to 500MB
-CORS(app, resources={r"/*": {"origins": "*"}})
-app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # Allow uploads up to 500MB
 
 # PostgreSQL connection string placeholder (update before deployment)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get("DATABASE_URL", "postgresql://paulminton@localhost:5432/video_review")
@@ -1042,6 +1023,21 @@ def notify_comment():
 @app.route("/admin/instructions-editor")
 def serve_instruction_editor():
     return render_template("admin_instructions.html")
+
+# --- SILAS System Instruction Admin API ---
+@app.route("/admin/instructions", methods=["GET"])
+def get_silas_instruction():
+    mode = request.args.get("mode")
+    if not mode:
+        return jsonify({"error": "Missing mode"}), 400
+
+    try:
+        with open("silas_instructions.json", "r") as f:
+            data = json.load(f)
+        return jsonify({"mode": mode, "content": data.get(mode, "")})
+    except Exception as e:
+        print("[❌] Failed to load instructions:", e)
+        return jsonify({"error": "Unable to load instructions"}), 500
 
 @app.route("/admin/instructions", methods=["POST"])
 def save_silas_instruction():
