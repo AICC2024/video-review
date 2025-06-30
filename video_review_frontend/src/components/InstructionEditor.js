@@ -43,7 +43,7 @@ const InstructionEditor = () => {
         >
           <option value="video">Video</option>
           <option value="pdf">Storyboard</option>
-          <option value="docx">Document</option>
+          <option value="document">Document</option>
         </select>
       </div>
       <br />
