@@ -555,6 +555,20 @@ def admin_upload_asset():
         return jsonify({'error': 'Admin upload to S3 failed'}), 500
 
 
+# --- SILAS System Instruction Admin API ---
+@app.route("/admin/instructions", methods=["GET"])
+def get_silas_instruction():
+    mode = request.args.get("mode")
+    if not mode:
+        return jsonify({"error": "Missing mode"}), 400
+
+    try:
+        with open("silas_instructions.json", "r") as f:
+            data = json.load(f)
+        return jsonify({"mode": mode, "content": data.get(mode, "")})
+    except Exception as e:
+        print("[❌] Failed to load instructions:", e)
+        return jsonify({"error": "Unable to load instructions"}), 500
 # Route for listing S3 files by category
 @app.route('/media', methods=['GET'])
 def list_media_by_type():
@@ -1024,20 +1038,6 @@ def notify_comment():
 def serve_instruction_editor():
     return render_template("admin_instructions.html")
 
-# --- SILAS System Instruction Admin API ---
-@app.route("/admin/instructions", methods=["GET"])
-def get_silas_instruction():
-    mode = request.args.get("mode")
-    if not mode:
-        return jsonify({"error": "Missing mode"}), 400
-
-    try:
-        with open("silas_instructions.json", "r") as f:
-            data = json.load(f)
-        return jsonify({"mode": mode, "content": data.get(mode, "")})
-    except Exception as e:
-        print("[❌] Failed to load instructions:", e)
-        return jsonify({"error": "Unable to load instructions"}), 500
 
 @app.route("/admin/instructions", methods=["POST"])
 def save_silas_instruction():
