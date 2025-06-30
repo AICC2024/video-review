@@ -1048,6 +1048,8 @@ def save_silas_instruction():
         return jsonify({"error": "Missing mode or content"}), 400
 
     try:
+        print(f"[📝] Saving SILAS instructions for mode: {mode}")
+        print(f"[🧾] Content to save:\n{content}")
         path = "silas_instructions.json"
         instructions = {}
         if os.path.exists(path):
