@@ -23,7 +23,7 @@ const InstructionEditor = () => {
 
   const handleSave = async () => {
     try {
-      await axios.post(`${process.env.REACT_APP_BACKEND_URL}/admin/instructions`, { mode, instructions });
+      await axios.post(`${process.env.REACT_APP_BACKEND_URL}/admin/instructions`, { mode, content: instructions });
       setStatus('✅ Instructions saved successfully.');
     } catch (error) {
       console.error('Error saving instructions:', error);
