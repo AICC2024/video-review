@@ -92,7 +92,18 @@ os.makedirs(EXPORT_FOLDER, exist_ok=True)
 S3_BUCKET = 'naveon-video-storage'
 S3_REGION = 'us-east-1'  # change if your bucket is in a different region
 
+
 s3_client = boto3.client('s3')
+
+# --- Get SILAS system instruction for a mode ---
+def get_instruction(mode):
+    try:
+        with open("silas_instructions.json", "r") as f:
+            data = json.load(f)
+        return data.get(mode, "")
+    except Exception as e:
+        print(f"[❌] Failed to load system instruction for {mode}:", e)
+        return ""
 
 # --- SILAS Video Review Async Endpoint ---
 @app.route('/silas/review_video_async', methods=['POST'])
