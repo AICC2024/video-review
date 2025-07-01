@@ -1075,8 +1075,7 @@ def save_silas_instruction():
         else:
             instruction = Instruction(mode=mode, content=content)
             db.session.add(instruction)
-        with app.app_context():
-            db.session.commit()
+        db.session.commit()
         return jsonify({"status": "saved", "mode": mode})
     except Exception as e:
         print("[❌] Failed to save instructions:", e)
