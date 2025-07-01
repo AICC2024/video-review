@@ -96,12 +96,14 @@ S3_REGION = 'us-east-1'  # change if your bucket is in a different region
 s3_client = boto3.client('s3')
 
 # --- Get SILAS system instruction for a mode ---
+class Instruction(db.Model):
+    mode = db.Column(db.String(50), primary_key=True)
+    content = db.Column(db.Text, nullable=False)
+
 def get_instruction(mode):
     try:
-        print(f"[🔁] Reloading system instructions for mode: {mode}")
-        with open("silas_instructions.json", "r") as f:
-            data = json.load(f)
-        return data.get(mode, "")
+        row = Instruction.query.get(mode)
+        return row.content if row else ""
     except Exception as e:
         print(f"[❌] Failed to load system instruction for {mode}:", e)
         return ""
@@ -576,11 +578,12 @@ def get_silas_instruction():
     mode = request.args.get("mode")
     if not mode:
         return jsonify({"error": "Missing mode"}), 400
-
     try:
-        with open("silas_instructions.json", "r") as f:
-            data = json.load(f)
-        return jsonify({"mode": mode, "content": data.get(mode, "")})
+        row = Instruction.query.get(mode)
+        if row:
+            return jsonify({"mode": mode, "content": row.content})
+        else:
+            return jsonify({"mode": mode, "content": ""})
     except Exception as e:
         print("[❌] Failed to load instructions:", e)
         return jsonify({"error": "Unable to load instructions"}), 500
@@ -1061,20 +1064,16 @@ def save_silas_instruction():
     content = data.get("content")
     if not mode or content is None:
         return jsonify({"error": "Missing mode or content"}), 400
-
     try:
         print(f"[📝] Saving SILAS instructions for mode: {mode}")
         print(f"[🧾] Content to save:\n{content}")
-        path = "silas_instructions.json"
-        instructions = {}
-        if os.path.exists(path):
-            with open(path, "r") as f:
-                instructions = json.load(f)
-
-        instructions[mode] = content
-        with open(path, "w") as f:
-            json.dump(instructions, f, indent=2)
-
+        instruction = Instruction.query.get(mode)
+        if instruction:
+            instruction.content = content
+        else:
+            instruction = Instruction(mode=mode, content=content)
+            db.session.add(instruction)
+        db.session.commit()
         return jsonify({"status": "saved", "mode": mode})
     except Exception as e:
         print("[❌] Failed to save instructions:", e)
