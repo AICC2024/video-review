@@ -568,6 +568,7 @@ def admin_upload_asset():
 
 
 # --- SILAS System Instruction Admin API ---
+# Place this route BEFORE the frontend fallback routes to ensure correct matching
 @app.route("/admin/instructions", methods=["GET"])
 def get_silas_instruction():
     mode = request.args.get("mode")
