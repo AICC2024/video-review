@@ -95,11 +95,6 @@ S3_REGION = 'us-east-1'  # change if your bucket is in a different region
 
 s3_client = boto3.client('s3')
 
-# --- Get SILAS system instruction for a mode ---
-class Instruction(db.Model):
-    mode = db.Column(db.String(50), primary_key=True)
-    content = db.Column(db.Text, nullable=False)
-
 def get_instruction(mode):
     try:
         row = Instruction.query.get(mode)
@@ -285,7 +280,13 @@ def archive_s3_file():
         print(f"[❌] Failed to archive {original_key}:", str(e))
         return jsonify({'error': 'Failed to archive file'}), 500
 
+
 db = SQLAlchemy(app)
+
+# --- Get SILAS system instruction for a mode ---
+class Instruction(db.Model):
+    mode = db.Column(db.String(50), primary_key=True)
+    content = db.Column(db.Text, nullable=False)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
