@@ -1061,6 +1061,7 @@ def serve_instruction_editor():
 @app.route("/admin/instructions", methods=["POST"])
 def save_silas_instruction():
     data = request.json
+    print(f"[🔧] Incoming POST to save instructions: {data}")
     mode = data.get("mode")
     content = data.get("content")
     if not mode or content is None:
@@ -1074,7 +1075,8 @@ def save_silas_instruction():
         else:
             instruction = Instruction(mode=mode, content=content)
             db.session.add(instruction)
-        db.session.commit()
+        with app.app_context():
+            db.session.commit()
         return jsonify({"status": "saved", "mode": mode})
     except Exception as e:
         print("[❌] Failed to save instructions:", e)
