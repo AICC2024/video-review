@@ -159,18 +159,18 @@ def silas_review_video_async():
 
                 print(f"[📝] Transcript preview: {full_text[:100]}...")
 
-                # Break into 3s segments
+                # Break into 5s segments
                 segments = []
                 words = full_text.split()
                 chunk_size = int(len(words) / 40) or 1
                 for i in range(0, len(words), chunk_size):
                     segments.append(" ".join(words[i:i+chunk_size]))
 
-                # Capture frame every 3 seconds
+                # Capture frame every 5 seconds
                 duration = VideoFileClip(video_path).duration
                 timestamps = [int(t) for t in range(0, int(duration), 3)]
 
-                print(f"[🎞️] Processing {len(timestamps)} frames at 3s intervals")
+                print(f"[🎞️] Processing {len(timestamps)} frames at 5s intervals")
 
                 for i, ts in enumerate(timestamps):
                     try:
@@ -188,7 +188,7 @@ def silas_review_video_async():
                         vision_prompt = [
                             {
                                 "type": "text",
-                                "text": f"Please review this video scene (Timestamp: {ts}s). Here is the narration: “{segments[i]}” Provide 1–2 visual improvement suggestions for the scene shown."
+                                "text": f"This is a frame from the video at {ts}s. The narration at this moment was:\n\n“{segments[i]}”\n\nPlease apply the SILAS video review guidelines to this frame."
                             },
                             {
                                 "type": "image_url",
@@ -198,12 +198,14 @@ def silas_review_video_async():
                             }
                         ]
 
+                        system_instruction = get_instruction("video")
+                        print(f"[📖] Instruction being sent to SILAS:\n{system_instruction}")
                         response = client.chat.completions.create(
                             model="gpt-4o",
                             messages=[
                                 {
                                     "role": "system",
-                                    "content": get_instruction("video")
+                                    "content": system_instruction
                                 },
                                 {
                                     "role": "user",
@@ -544,7 +546,7 @@ def export_comments(video_id):
 @app.route('/admin/upload', methods=['POST'])
 def admin_upload_asset():
     file = request.files.get('file')
-    category = request.form.get('category')  # 'videos', 'storyboards', 'voiceovers'
+    category = request.form.get('category')  # 'videos', 'storyboards', 'voiceovers', 'documents'
 
     if not file or not category:
         return jsonify({'error': 'File and category are required'}), 400
@@ -585,7 +587,7 @@ def get_silas_instruction():
 # Route for listing S3 files by category
 @app.route('/media', methods=['GET'])
 def list_media_by_type():
-    category = request.args.get('type')  # 'videos', 'storyboards', 'voiceovers'
+    category = request.args.get('type')  # 'videos', 'storyboards', 'voiceovers', 'documents'
     if not category:
         return jsonify({'error': 'Missing type query parameter'}), 400
 
@@ -707,7 +709,7 @@ def silas_review():
             vision_prompt = [
                 {
                     "type": "text",
-                    "text": f"Please review this storyboard slide (Page {page_num + 1}). Provide only 2–3 specific, visual improvements. Base your feedback on what you clearly see in the slide and its narration. Avoid vague language like 'if not already present' and do not include Overall Tone or What Works unless explicitly instructed."
+                    "text": f"This is page {page_num + 1} of the storyboard. Please apply the SILAS storyboard review guidelines when reviewing this page visually."
                 },
                 {
                     "type": "image_url",
