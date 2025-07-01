@@ -98,6 +98,7 @@ s3_client = boto3.client('s3')
 # --- Get SILAS system instruction for a mode ---
 def get_instruction(mode):
     try:
+        print(f"[🔁] Reloading system instructions for mode: {mode}")
         with open("silas_instructions.json", "r") as f:
             data = json.load(f)
         return data.get(mode, "")
